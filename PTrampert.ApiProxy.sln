@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28010.2019
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTrampert.ApiProxy", "PTrampert.ApiProxy\PTrampert.ApiProxy.csproj", "{F7F60736-7B31-45BB-8F06-5B050100811B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTrampert.ApiProxy.Test", "PTrampert.ApiProxy.Test\PTrampert.ApiProxy.Test.csproj", "{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{F7F60736-7B31-45BB-8F06-5B050100811B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F7F60736-7B31-45BB-8F06-5B050100811B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F7F60736-7B31-45BB-8F06-5B050100811B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
