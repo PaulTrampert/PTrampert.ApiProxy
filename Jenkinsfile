@@ -2,12 +2,7 @@ def releaseInfo
 def branch
 
 pipeline {
-  agent {
-    docker {
-      image 'microsoft/dotnet:2.1-sdk'
-      args '-u root'
-    }
-  }
+  agent any
 
   options {
     buildDiscarder(logRotator(numToKeepStr:'5'))
@@ -16,7 +11,6 @@ pipeline {
   stages {
     stage('Set branch') {
       when { expression { env.BRANCH_NAME != 'master' } }
-
 
       steps {
         script {
@@ -81,6 +75,7 @@ pipeline {
     }
     always {
       archiveArtifacts '**/*.nupkg'
+
       xunit(
         testTimeMargin: '3000',
         thresholdMode: 1,
@@ -101,7 +96,7 @@ pipeline {
       cobertura(
         autoUpdateHealth: false,
         autoUpdateStability: false,
-        coberturaReportFile: '**/coverage.*.xml',
+        coberturaReportFile: '**/*.cobertura.xml',
         conditionalCoverageTargets: '70, 0, 0',
         failUnhealthy: false,
         failUnstable: false,
