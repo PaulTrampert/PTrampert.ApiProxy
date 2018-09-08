@@ -56,6 +56,23 @@ pipeline {
       }
     }
 
+    stage ('Tag') {
+      when { expression { env.BRANCH_NAME == 'master' } }
+
+      steps {
+        script {
+          publishGithubRelease(
+            'PaulTrampert',
+            'PTrampert.ApiProxy',
+            releaseInfo,
+            'v',
+            'Github User/Pass',
+            'https://api.github.com'
+          )
+        }
+      }
+    }
+
     stage('Publish') {
       environment {
         API_KEY = credentials('nexus-nuget-apikey')
