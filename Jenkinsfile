@@ -23,19 +23,21 @@ pipeline {
     }
 
     stage('Build Release Info') {
-      script {
-        releaseInfo = generateGithubReleaseInfo(
-          'PaulTrampert',
-          'PTrampert.ApiProxy',
-          'v',
-          'Github User/Pass',
-          'https://api.github.com',
-          branch,
-          env.BUILD_NUMBER
-        )
+      steps {
+        script {
+          releaseInfo = generateGithubReleaseInfo(
+            'PaulTrampert',
+            'PTrampert.ApiProxy',
+            'v',
+            'Github User/Pass',
+            'https://api.github.com',
+            branch,
+            env.BUILD_NUMBER
+          )
 
-        echo "Next version is ${releaseInfo.nextVersion().toString()}."
-        echo "Changelog:\n${releaseInfo.changelogToMarkdown()}"
+          echo "Next version is ${releaseInfo.nextVersion().toString()}."
+          echo "Changelog:\n${releaseInfo.changelogToMarkdown()}"
+        }
       }
     }
 
