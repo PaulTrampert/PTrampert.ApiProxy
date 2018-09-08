@@ -81,41 +81,27 @@ pipeline {
     }
     always {
       archiveArtifacts '**/*.nupkg'
-      step([
-        $class: 'XUnitPublisher',
+      xunit(
         testTimeMargin: '3000',
         thresholdMode: 1,
         thresholds: [
-          [
-            $class: 'FailedThreshold',
-            failureNewThreshold: '',
-            failureThreshold: '',
-            unstableNewThreshold: '',
-            unstableThreshold: '0'
-          ],
-          [
-            $class: 'SkippedThreshold',
-            failureNewThreshold: '',
-            failureThreshold: '',
-            unstableNewThreshold: '',
-            unstableThreshold: ''
-          ]
+          failed(unstableThreshold: '0')
         ],
         tools: [
-          [
-            $class: 'MSTestJunitHudsonTestType',
+          MSTest(
             deleteOutputFiles: true,
             failIfNotNew: true,
-            pattern: resultsPattern,
+            pattern: '**/*.trx',
             skipNoTestFiles: false,
             stopProcessingIfError: true
-          ]
+          )
         ]
-      ])
+      )
+
       cobertura(
         autoUpdateHealth: false,
         autoUpdateStability: false,
-        coberturaReportFile: 'coverage.*.xml',
+        coberturaReportFile: '**/coverage.*.xml',
         conditionalCoverageTargets: '70, 0, 0',
         failUnhealthy: false,
         failUnstable: false,
