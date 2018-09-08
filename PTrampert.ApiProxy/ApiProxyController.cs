@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 
 namespace PTrampert.ApiProxy
 {
@@ -21,13 +25,37 @@ namespace PTrampert.ApiProxy
         }
 
         [Route("{api}/{*path}")]
-        public async Task<IActionResult> Proxy(string api, string path)
+        public async Task Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))
             {
-                return NotFound(new ApiError($"Unknown api: {api}"));
+                throw new ProxyException($"No API named '{api}' configured.", (int)HttpStatusCode.NotFound);
             }
-            return NoContent();
+
+            var apiConfig = proxyConfig[api];
+            
+            var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
+            if ((Request.ContentLength ?? 0) > 0)
+            {
+                request.Content = new StreamContent(Request.Body);
+                request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ? 
+                    request.Content.Headers.ContentType 
+                    : new MediaTypeHeaderValue(Request.ContentType);
+            }
+
+            var response = await httpClient.SendAsync(request);
+
+            Response.StatusCode = (int) response.StatusCode;
+            foreach (var header in response.Headers)
+            {
+                Response.Headers[header.Key] = new StringValues(header.Value.ToArray());
+            }
+
+            if (response.Content != null)
+            {
+                Response.ContentType = response.Content.Headers.ContentType.ToString();
+                Response.Body = await response.Content.ReadAsStreamAsync();
+            }
         }
     }
 }
