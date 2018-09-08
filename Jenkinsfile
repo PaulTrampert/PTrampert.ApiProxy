@@ -3,7 +3,10 @@ def branch
 
 pipeline {
   agent {
-    docker { image 'microsoft/dotnet:2.1-sdk' }
+    docker {
+      image 'microsoft/dotnet:2.1-sdk'
+      args '-u root'
+    }
   }
 
   options {
