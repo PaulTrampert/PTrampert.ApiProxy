@@ -56,6 +56,8 @@ pipeline {
       }
     }
 
+<<<<<<< HEAD
+=======
     stage ('Tag') {
       when { expression { env.BRANCH_NAME == 'master' } }
 
@@ -73,6 +75,7 @@ pipeline {
       }
     }
 
+>>>>>>> Tag for release builds.
     stage('Publish') {
       environment {
         API_KEY = credentials('nexus-nuget-apikey')
