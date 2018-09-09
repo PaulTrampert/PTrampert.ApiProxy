@@ -24,7 +24,6 @@ namespace PTrampert.ApiProxy
             this.proxyConfig = proxyConfig.Value;
         }
 
-        [Route("{api}/{*path}")]
         public async Task Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))
