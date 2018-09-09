@@ -1,10 +1,13 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using PTrampert.ApiProxy.Exceptions;
@@ -15,16 +18,18 @@ namespace PTrampert.ApiProxy
     {
         private readonly HttpClient httpClient;
         private readonly IAuthenticationBuilder authBuilder;
+        private readonly ILogger<ApiProxyController> log;
         private readonly ApiProxyConfig proxyConfig;
 
-        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationBuilder authBuilder)
+        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationBuilder authBuilder, ILogger<ApiProxyController> log = null)
         {
             this.httpClient = httpClient;
             this.authBuilder = authBuilder;
+            this.log = log;
             this.proxyConfig = proxyConfig.Value;
         }
 
-        public async Task Proxy(string api, string path)
+        public async Task<IActionResult> Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))
             {
@@ -32,34 +37,53 @@ namespace PTrampert.ApiProxy
             }
 
             var apiConfig = proxyConfig[api];
+
+            var response = await MakeRequest(apiConfig, path);
             
-            var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
-            if ((Request.ContentLength ?? 0) > 0)
-            {
-                request.Content = new StreamContent(Request.Body);
-                request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ? 
-                    request.Content.Headers.ContentType 
-                    : new MediaTypeHeaderValue(Request.ContentType);
-            }
-
-            var auth = authBuilder.BuildAuthentication(apiConfig);
-            if (auth != null)
-            {
-                request.Headers.Authorization = await auth.GetAuthenticationHeader();
-            }
-
-            var response = await httpClient.SendAsync(request);
-
             Response.StatusCode = (int) response.StatusCode;
-            foreach (var header in response.Headers)
+            foreach (var responseHeaderKey in apiConfig.ResponseHeaders)
             {
-                Response.Headers[header.Key] = new StringValues(header.Value.ToArray());
+                if (response.Headers.Contains(responseHeaderKey))
+                {
+                    Response.Headers.Add(responseHeaderKey, new StringValues(response.Headers.GetValues(responseHeaderKey).ToArray()));
+                }
             }
 
-            if (response.Content != null)
+            if (response.Content?.Headers.ContentLength != null && response.Content.Headers.ContentLength.Value > 0)
             {
-                Response.ContentType = response.Content.Headers.ContentType.ToString();
-                Response.Body = await response.Content.ReadAsStreamAsync();
+                var contentType = response.Content.Headers.ContentType;
+                var stream = await response.Content.ReadAsStreamAsync();
+                return File(stream, contentType.ToString());
+            }
+            return new EmptyResult();
+        }
+
+        private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
+        {
+            using (var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}")))
+            using (var content = new StreamContent(Request.Body ?? Stream.Null))
+            {
+                foreach (var requestHeaderKey in apiConfig.RequestHeaders)
+                {
+                    if (Request.Headers.ContainsKey(requestHeaderKey))
+                        request.Headers.Add(requestHeaderKey, request.Headers.GetValues(requestHeaderKey));
+                }
+
+                if ((Request.ContentLength ?? 0) > 0)
+                {
+                    request.Content = content;
+                    request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
+                        request.Content.Headers.ContentType
+                        : new MediaTypeHeaderValue(Request.ContentType);
+                }
+
+                var auth = authBuilder.BuildAuthentication(apiConfig);
+                if (auth != null)
+                {
+                    request.Headers.Authorization = await auth.GetAuthenticationHeader();
+                }
+
+                return await httpClient.SendAsync(request);
             }
         }
     }

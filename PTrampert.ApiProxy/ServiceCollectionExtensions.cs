@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using PTrampert.ApiProxy;
 
 namespace Microsoft.Extensions.DependencyInjection
@@ -24,12 +25,8 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IServiceCollection Common(IServiceCollection services)
         {
-            services.AddScoped<IAuthenticationBuilder, AuthenticationBuilder>();
-            if (!services.Any(sd => typeof(HttpClient).IsAssignableFrom(sd.ServiceType)))
-            {
-                services.AddSingleton<HttpClient>();
-            }
-
+            services.TryAddScoped<IAuthenticationBuilder, AuthenticationBuilder>();
+            services.TryAddSingleton<HttpClient>();
             return services;
         }
     }
