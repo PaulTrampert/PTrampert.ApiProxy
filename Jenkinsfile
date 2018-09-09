@@ -73,12 +73,23 @@ pipeline {
       }
     }
 
-    stage('Publish') {
+    stage('Publish Pre-Release') {
+      when {env.BRANCH_NAME != 'master'}
       environment {
         API_KEY = credentials('nexus-nuget-apikey')
       }
       steps {
         sh "dotnet nuget push **/*.nupkg -s 'https://packages.ptrampert.com/repository/nuget/' -k ${env.API_KEY}"
+      }
+    }
+
+    stage('Publish Release') {
+      when {env.BRANCH_NAME == 'master'}
+      environment {
+        API_KEY = credentials('nuget-api-key')
+      }
+      steps {
+        sh "dotnet nuget push **/*.nupkg -k ${env.API_KEY}"
       }
     }
   }
