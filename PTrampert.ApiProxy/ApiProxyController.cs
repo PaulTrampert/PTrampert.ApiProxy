@@ -57,11 +57,11 @@ namespace PTrampert.ApiProxy
                 Response.Headers[header.Key] = new StringValues(header.Value.ToArray());
             }
 
-            if (response.Content != null)
+            if (response.Content.Headers.ContentLength.Value > 0)
             {
                 var contentType = response.Content.Headers.ContentType;
                 var stream = response.Content.ReadAsStreamAsync();
-                return new FileStreamResult(await stream, contentType.ToString());
+                return File(await stream, contentType.ToString());
             }
             return new EmptyResult();
         }
