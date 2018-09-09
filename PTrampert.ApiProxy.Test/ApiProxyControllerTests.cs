@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Moq;
 using NUnit.Framework;
+using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy.Test
 {
