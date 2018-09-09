@@ -14,11 +14,13 @@ namespace PTrampert.ApiProxy
     public class ApiProxyController : Controller
     {
         private readonly HttpClient httpClient;
+        private readonly IAuthenticationBuilder authBuilder;
         private readonly ApiProxyConfig proxyConfig;
 
-        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig)
+        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationBuilder authBuilder)
         {
             this.httpClient = httpClient;
+            this.authBuilder = authBuilder;
             this.proxyConfig = proxyConfig.Value;
         }
 
@@ -39,6 +41,12 @@ namespace PTrampert.ApiProxy
                 request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ? 
                     request.Content.Headers.ContentType 
                     : new MediaTypeHeaderValue(Request.ContentType);
+            }
+
+            var auth = authBuilder.BuildAuthentication(apiConfig);
+            if (auth != null)
+            {
+                request.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
             var response = await httpClient.SendAsync(request);
