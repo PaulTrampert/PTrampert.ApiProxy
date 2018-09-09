@@ -14,13 +14,24 @@ using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy
 {
-    public class ApiProxyController : Controller
+    /// <summary>
+    /// Controller that proxies api requests to configured API's behind the server.
+    /// This class is public so that it can be found by ASP.NET Core, but should not be invoked directly by consuming code.
+    /// </summary>
+    public sealed class ApiProxyController : Controller
     {
         private readonly HttpClient httpClient;
         private readonly IAuthenticationFactory authFactory;
         private readonly ILogger<ApiProxyController> log;
         private readonly ApiProxyConfig proxyConfig;
 
+        /// <summary>
+        /// Constructor for <see cref="ApiProxyController"/>
+        /// </summary>
+        /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests to downstream API's.</param>
+        /// <param name="proxyConfig">The <see cref="ApiProxyConfig"/> containing configured API's.</param>
+        /// <param name="authFactory">The <see cref="IAuthenticationFactory"/>.</param>
+        /// <param name="log">The <see cref="ILogger{ApiProxyController}"/></param>
         public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, ILogger<ApiProxyController> log = null)
         {
             this.httpClient = httpClient;
@@ -29,6 +40,12 @@ namespace PTrampert.ApiProxy
             this.proxyConfig = proxyConfig.Value;
         }
 
+        /// <summary>
+        /// Proxy a request to the downstream API.
+        /// </summary>
+        /// <param name="api">The API to proxy to.</param>
+        /// <param name="path">The path of the request.</param>
+        /// <returns>The response.</returns>
         public async Task<IActionResult> Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))

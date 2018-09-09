@@ -5,9 +5,7 @@ using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy
 {
-    /// <summary>
-    /// The default implementation of <see cref="IAuthenticationFactory"/>.
-    /// </summary>
+    /// <inheritdoc cref="IAuthenticationFactory"/>
     public class DefaultAuthenticationFactory : IAuthenticationFactory
     {
         private readonly IServiceProvider services;
@@ -21,11 +19,7 @@ namespace PTrampert.ApiProxy
             this.services = services;
         }
 
-        /// <summary>
-        /// Builds the <see cref="IAuthentication"/> specified by <see cref="ApiConfig"/>.
-        /// </summary>
-        /// <param name="config">The <see cref="ApiConfig"/></param>
-        /// <returns>The <see cref="IAuthentication"/>.</returns>
+        /// <inheritdoc cref="IAuthenticationFactory"/>
         public IAuthentication BuildAuthentication(ApiConfig config)
         {
             if (config.AuthType == null)
