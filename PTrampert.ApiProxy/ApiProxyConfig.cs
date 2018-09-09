@@ -19,5 +19,9 @@ namespace PTrampert.ApiProxy
         public string AuthType { get; set; }
 
         public IDictionary<string, string> AuthProps { get; set; } = new Dictionary<string, string>();
+
+        public IEnumerable<string> ResponseHeaders { get; set; } = new List<string>();
+
+        public IEnumerable<string> RequestHeaders { get; set; } = new List<string>();
     }
 }

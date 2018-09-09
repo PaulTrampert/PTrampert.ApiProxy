@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -71,11 +72,9 @@ namespace PTrampert.ApiProxy.Test
 
             await subject.Proxy("fake", path);
 
-            var lastRequest = messageHandler.LastRequest;
-            var lastRequestBody = lastRequest.Content == null ? null : await lastRequest.Content.ReadAsStringAsync();
-            Assert.That(lastRequest.RequestUri.ToString(), Is.EqualTo($"https://example.com/{path}{query}"));
-            Assert.That(lastRequestBody, Is.EqualTo(body));
-            Assert.That(lastRequest.Content?.Headers.ContentType.MediaType, Is.EqualTo(contentType));
+            Assert.That(messageHandler.LastRequestUrl, Is.EqualTo($"https://example.com/{path}{query}"));
+            Assert.That(messageHandler.LastRequestBody, Is.EqualTo(body));
+            Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo(contentType));
         }
 
         [TestCase(HttpStatusCode.OK, "somebody", "text/plain", "herp=derp&bloop=floop")]
@@ -85,7 +84,12 @@ namespace PTrampert.ApiProxy.Test
         {
             proxyConfig.Add("fake", new ApiConfig
             {
-                BaseUrl = "https://example.com"
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "herp",
+                    "bloop"
+                }
             });
             subject.Request.Method = "GET";
             messageHandler.NextResponse = new HttpResponseMessage(code);
@@ -136,7 +140,7 @@ namespace PTrampert.ApiProxy.Test
 
             await subject.Proxy("fake", "some/path");
 
-            Assert.That(messageHandler.LastRequest.Headers.Authorization, Is.SameAs(authHeader));
+            Assert.That(messageHandler.LastRequestAuthenticationHeader, Is.SameAs(authHeader));
         }
     }
 }
