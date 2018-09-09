@@ -14,7 +14,11 @@ namespace PTrampert.ApiProxy.Test.Authentication
         [SetUp]
         public void SetUp()
         {
-            subject = new BasicAuthentication("id", "secret");
+            subject = new BasicAuthentication
+            {
+                Id = "id",
+                Secret = "secret"
+            };
         }
 
         [Test]
