@@ -89,7 +89,7 @@ pipeline {
         API_KEY = credentials('nuget-api-key')
       }
       steps {
-        sh "dotnet nuget push **/*.nupkg -k ${env.API_KEY}"
+        sh "dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${env.API_KEY}"
       }
     }
   }
