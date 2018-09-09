@@ -24,6 +24,6 @@ namespace PTrampert.ApiProxy
 
         public string AuthType { get; set; }
 
-        public IDictionary<string, string> AuthProps { get; set; }
+        public IDictionary<string, string> AuthProps { get; set; } = new Dictionary<string, string>();
     }
 }

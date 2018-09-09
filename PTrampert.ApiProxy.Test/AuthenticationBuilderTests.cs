@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
 using PTrampert.ApiProxy.Exceptions;
@@ -80,6 +82,26 @@ namespace PTrampert.ApiProxy.Test
 
             Assert.That(result.Id, Is.EqualTo("id"));
             Assert.That(result.Secret, Is.EqualTo("secret"));
+        }
+
+        [Test]
+        public void CanBuildBearerAuthentication()
+        {
+            var httpAccessor = new Mock<IHttpContextAccessor>();
+            serviceCollection.AddSingleton(httpAccessor.Object);
+            serviceProvider = serviceCollection.BuildServiceProvider();
+            subject = new AuthenticationBuilder(serviceProvider);
+            config.AuthType = typeof(UserBearerAuthentication).FullName;
+            config.AuthProps = new Dictionary<string, string>
+            {
+                { "Mode", "Claims" },
+                { ".Token.TokenKey", "token" }
+            };
+
+            var result = subject.BuildAuthentication(config) as UserBearerAuthentication;
+
+            Assert.That(result.Mode, Is.EqualTo(TokenMode.Claims.ToString()));
+            Assert.That(result.TokenKey, Is.EqualTo("token"));
         }
     }
 }
