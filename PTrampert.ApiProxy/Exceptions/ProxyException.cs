@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace PTrampert.ApiProxy
+namespace PTrampert.ApiProxy.Exceptions
 {
     public class ProxyException : Exception
     {

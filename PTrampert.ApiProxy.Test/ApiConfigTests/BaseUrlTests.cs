@@ -1,8 +1,8 @@
 ﻿using NUnit.Framework;
 
-namespace PTrampert.ApiProxy.Test
+namespace PTrampert.ApiProxy.Test.ApiConfigTests
 {
-    public class ApiConfigTests
+    public class BaseUrlTests
     {
         private ApiConfig subject;
 
