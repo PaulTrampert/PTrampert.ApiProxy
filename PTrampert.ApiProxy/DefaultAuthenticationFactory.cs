@@ -5,15 +5,21 @@ using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy
 {
-    internal class AuthenticationBuilder : IAuthenticationBuilder
+    /// <inheritdoc cref="IAuthenticationFactory"/>
+    public class DefaultAuthenticationFactory : IAuthenticationFactory
     {
         private readonly IServiceProvider services;
 
-        public AuthenticationBuilder(IServiceProvider services)
+        /// <summary>
+        /// Constructor for <see cref="DefaultAuthenticationFactory"/>.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceProvider"/> used to resolve constructor dependencies.</param>
+        public DefaultAuthenticationFactory(IServiceProvider services)
         {
             this.services = services;
         }
 
+        /// <inheritdoc cref="IAuthenticationFactory"/>
         public IAuthentication BuildAuthentication(ApiConfig config)
         {
             if (config.AuthType == null)
