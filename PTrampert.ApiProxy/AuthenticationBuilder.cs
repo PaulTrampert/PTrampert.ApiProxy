@@ -9,7 +9,7 @@ using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy
 {
-    internal class AuthenticationBuilder
+    internal class AuthenticationBuilder : IAuthenticationBuilder
     {
         private readonly IServiceProvider services;
 
