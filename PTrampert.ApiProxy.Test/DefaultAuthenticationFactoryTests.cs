@@ -9,9 +9,9 @@ using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy.Test
 {
-    public class AuthenticationBuilderTests
+    public class DefaultAuthenticationFactoryTests
     {
-        private AuthenticationBuilder subject;
+        private DefaultAuthenticationFactory subject;
         private IServiceCollection serviceCollection;
         private IServiceProvider serviceProvider;
         private ApiConfig config;
@@ -25,7 +25,7 @@ namespace PTrampert.ApiProxy.Test
             };
             serviceCollection = new ServiceCollection();
             serviceProvider = serviceCollection.BuildServiceProvider();
-            subject = new AuthenticationBuilder(serviceProvider);
+            subject = new DefaultAuthenticationFactory(serviceProvider);
         }
 
         [Test]
@@ -88,7 +88,7 @@ namespace PTrampert.ApiProxy.Test
             var httpAccessor = new Mock<IHttpContextAccessor>();
             serviceCollection.AddSingleton(httpAccessor.Object);
             serviceProvider = serviceCollection.BuildServiceProvider();
-            subject = new AuthenticationBuilder(serviceProvider);
+            subject = new DefaultAuthenticationFactory(serviceProvider);
             config.AuthType = typeof(UserBearerAuthentication).FullName;
             config.AuthProps = new Dictionary<string, string>
             {

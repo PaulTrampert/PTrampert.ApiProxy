@@ -25,7 +25,7 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IServiceCollection Common(IServiceCollection services)
         {
-            services.TryAddScoped<IAuthenticationBuilder, AuthenticationBuilder>();
+            services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();
             services.TryAddSingleton<HttpClient>();
             return services;
         }
