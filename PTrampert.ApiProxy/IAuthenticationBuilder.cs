@@ -1,6 +1,6 @@
 ﻿namespace PTrampert.ApiProxy
 {
-    internal interface IAuthenticationBuilder
+    public interface IAuthenticationBuilder
     {
         IAuthentication BuildAuthentication(ApiConfig config);
     }
