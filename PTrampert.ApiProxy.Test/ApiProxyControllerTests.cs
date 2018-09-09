@@ -96,14 +96,19 @@ namespace PTrampert.ApiProxy.Test
                 messageHandler.NextResponse.Headers.Add(kv[0], kv[1]);
             }
 
-            await subject.Proxy("fake", "path");
+            var result = await subject.Proxy("fake", "path");
 
             Assert.That(subject.Response.StatusCode, Is.EqualTo((int)code));
             if (body != null)
             {
-                var responseBody = await new StreamReader(subject.Response.Body).ReadToEndAsync();
-                Assert.That(responseBody, Is.EqualTo(body));
-                Assert.That(subject.Response.ContentType.StartsWith(contentType));
+                var fileStreamResult = result as FileStreamResult;
+                Assert.That(fileStreamResult.ContentType.StartsWith(contentType));
+                var content = await new StreamReader(fileStreamResult.FileStream).ReadToEndAsync();
+                Assert.That(content, Is.EqualTo(body));
+            }
+            else
+            {
+                Assert.That(result, Is.InstanceOf<EmptyResult>());
             }
 
             if (headers != null)
@@ -132,24 +137,6 @@ namespace PTrampert.ApiProxy.Test
             await subject.Proxy("fake", "some/path");
 
             Assert.That(messageHandler.LastRequest.Headers.Authorization, Is.SameAs(authHeader));
-        }
-
-        [Test]
-        public async Task ItReturnsTheResponse()
-        {
-            proxyConfig.Add("fake", new ApiConfig
-            {
-                BaseUrl = "https://example.com"
-            });
-            subject.Request.Method = "GET";
-            var auth = new Mock<IAuthentication>();
-            var authHeader = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret")));
-            auth.Setup(a => a.GetAuthenticationHeader()).ReturnsAsync(authHeader);
-            authBuilder.Setup(ab => ab.BuildAuthentication(proxyConfig["fake"])).Returns(auth.Object);
-
-            var result = await subject.Proxy("fake", "some/path");
-
-            Assert.That(result, Is.SameAs(subject.Response));
         }
     }
 }

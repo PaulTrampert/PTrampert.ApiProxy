@@ -25,7 +25,7 @@ namespace PTrampert.ApiProxy
             this.proxyConfig = proxyConfig.Value;
         }
 
-        public async Task<HttpResponse> Proxy(string api, string path)
+        public async Task<IActionResult> Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))
             {
@@ -59,11 +59,11 @@ namespace PTrampert.ApiProxy
 
             if (response.Content != null)
             {
-                Response.ContentType = response.Content.Headers.ContentType.ToString();
-                Response.Body = await response.Content.ReadAsStreamAsync();
+                var contentType = response.Content.Headers.ContentType;
+                var stream = response.Content.ReadAsStreamAsync();
+                return new FileStreamResult(await stream, contentType.ToString());
             }
-
-            return Response;
+            return new EmptyResult();
         }
     }
 }
