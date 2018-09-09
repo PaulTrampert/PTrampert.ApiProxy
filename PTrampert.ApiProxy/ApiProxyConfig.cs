@@ -8,6 +8,9 @@ namespace PTrampert.ApiProxy
     /// </summary>
     public class ApiProxyConfig : Dictionary<string, ApiConfig>
     {
+        /// <summary>
+        /// Constructor for <see cref="ApiProxyConfig"/>
+        /// </summary>
         public ApiProxyConfig() : base(StringComparer.OrdinalIgnoreCase)
         {
         }

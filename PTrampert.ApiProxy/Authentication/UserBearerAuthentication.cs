@@ -60,9 +60,19 @@ namespace PTrampert.ApiProxy.Authentication
         }
     }
 
+    /// <summary>
+    /// Enum of valid TokenModes.
+    /// </summary>
     public enum TokenMode
     {
+        /// <summary>
+        /// Token should be found in the authentication properties.
+        /// </summary>
         AuthProps,
+
+        /// <summary>
+        /// Token should be found in the user claims.
+        /// </summary>
         Claims
     }
 }

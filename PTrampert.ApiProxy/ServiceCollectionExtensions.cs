@@ -9,14 +9,29 @@ using PTrampert.ApiProxy;
 
 namespace Microsoft.Extensions.DependencyInjection
 {
+    /// <summary>
+    /// Provides extension methods to <see cref="IServiceCollection"/> to register required dependencies for the api proxy.
+    /// </summary>
     public static class ServiceCollectionExtensions
     {
+        /// <summary>
+        /// Configure api proxy using an <see cref="IConfiguration"/>.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/></param>
+        /// <param name="config">The <see cref="IConfiguration"/> who's keys should map to <see cref="ApiProxyConfig"/>.</param>
+        /// <returns>The <see cref="IServiceCollection"/></returns>
         public static IServiceCollection AddApiProxy(this IServiceCollection services, IConfiguration config)
         {
             services.Configure<ApiProxyConfig>(config);
             return Common(services);
         }
 
+        /// <summary>
+        /// Configure api proxy using a setup action.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/></param>
+        /// <param name="setupAction">The <see cref="Action{ApiProxyConfig}"/> that sets the configuration properties on an <see cref="ApiProxyConfig"/>.</param>
+        /// <returns>The <see cref="IServiceCollection"/></returns>
         public static IServiceCollection AddApiProxy(this IServiceCollection services, Action<ApiProxyConfig> setupAction)
         {
             services.Configure<ApiProxyConfig>(setupAction);
