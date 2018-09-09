@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
-using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy.Authentication
 {
@@ -35,11 +32,6 @@ namespace PTrampert.ApiProxy.Authentication
                     break;
             }
             return new AuthenticationHeaderValue("Bearer", token);
-        }
-
-        public virtual Task<string> GetTokenFromAuthProps(string tokenKey)
-        {
-            return httpContext.HttpContext.GetTokenAsync(tokenKey);
         }
     }
 

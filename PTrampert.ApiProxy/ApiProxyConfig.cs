@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http.Headers;
-using System.Reflection;
-using Microsoft.Extensions.DependencyInjection;
-using PTrampert.ApiProxy.Exceptions;
+﻿using System.Collections.Generic;
 
 namespace PTrampert.ApiProxy
 {
