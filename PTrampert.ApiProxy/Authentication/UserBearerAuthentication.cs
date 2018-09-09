@@ -24,7 +24,7 @@ namespace PTrampert.ApiProxy.Authentication
 
         public async Task<AuthenticationHeaderValue> GetAuthenticationHeader()
         {
-            string token;
+            string token = null;
             switch ((TokenMode)Enum.Parse(typeof(TokenMode), Mode))
             {
                 case TokenMode.Claims:
@@ -33,8 +33,6 @@ namespace PTrampert.ApiProxy.Authentication
                 case TokenMode.AuthProps:
                     token = await httpContext.HttpContext.GetTokenAsync(TokenKey);
                     break;
-                default:
-                    throw new InvalidTokenModeException(Mode);
             }
             return new AuthenticationHeaderValue("Bearer", token);
         }

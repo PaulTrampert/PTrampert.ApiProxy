@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
+using PTrampert.ApiProxy.Exceptions;
 
 namespace PTrampert.ApiProxy.Test.Authentication
 {
@@ -76,6 +77,22 @@ namespace PTrampert.ApiProxy.Test.Authentication
 
             Assert.That(result.Scheme, Is.EqualTo("Bearer"));
             Assert.That(result.Parameter, Is.EqualTo("token"));
+        }
+
+        [Test]
+        public async Task ItThrowsIfInvalidTokenMode()
+        {
+            subject.Mode = "invalid";
+
+            try
+            {
+                await subject.GetAuthenticationHeader();
+                Assert.Fail("Should have thrown");
+            }
+            catch (ArgumentException e)
+            {
+                Assert.That(e.Message, Is.EqualTo($"Requested value '{subject.Mode}' was not found."));
+            }
         }
     }
 }
