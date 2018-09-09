@@ -95,7 +95,7 @@ namespace PTrampert.ApiProxy.Test
             config.AuthProps = new Dictionary<string, string>
             {
                 { "Mode", "Claims" },
-                { ".Token.TokenKey", "token" }
+                { "TokenKey", "token" }
             };
 
             var result = subject.BuildAuthentication(config) as UserBearerAuthentication;
