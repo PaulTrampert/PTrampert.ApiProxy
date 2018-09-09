@@ -133,5 +133,23 @@ namespace PTrampert.ApiProxy.Test
 
             Assert.That(messageHandler.LastRequest.Headers.Authorization, Is.SameAs(authHeader));
         }
+
+        [Test]
+        public async Task ItReturnsTheResponse()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            var auth = new Mock<IAuthentication>();
+            var authHeader = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret")));
+            auth.Setup(a => a.GetAuthenticationHeader()).ReturnsAsync(authHeader);
+            authBuilder.Setup(ab => ab.BuildAuthentication(proxyConfig["fake"])).Returns(auth.Object);
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            Assert.That(result, Is.SameAs(subject.Response));
+        }
     }
 }
