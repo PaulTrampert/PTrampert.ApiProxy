@@ -27,6 +27,14 @@ namespace PTrampert.ApiProxy.Test.ApiConfigTests
         }
 
         [Test]
+        public void ItReturnsNullIfNoAuthTypeIsGiven()
+        {
+            config.AuthType = null;
+            var result = config.BuildAuthentication();
+            Assert.That(result, Is.Null);
+        }
+
+        [Test]
         public void ItCreatesTheIAuthenticationIfEverythingIsFine()
         {
             var result = config.BuildAuthentication();
