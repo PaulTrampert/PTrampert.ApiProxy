@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -24,7 +25,7 @@ namespace PTrampert.ApiProxy
             this.proxyConfig = proxyConfig.Value;
         }
 
-        public async Task Proxy(string api, string path)
+        public async Task<HttpResponse> Proxy(string api, string path)
         {
             if (!proxyConfig.ContainsKey(api))
             {
@@ -61,6 +62,8 @@ namespace PTrampert.ApiProxy
                 Response.ContentType = response.Content.Headers.ContentType.ToString();
                 Response.Body = await response.Content.ReadAsStreamAsync();
             }
+
+            return Response;
         }
     }
 }
