@@ -74,7 +74,7 @@ pipeline {
     }
 
     stage('Publish Pre-Release') {
-      when {env.BRANCH_NAME != 'master'}
+      when { expression{env.BRANCH_NAME != 'master'} }
       environment {
         API_KEY = credentials('nexus-nuget-apikey')
       }
@@ -84,7 +84,7 @@ pipeline {
     }
 
     stage('Publish Release') {
-      when {env.BRANCH_NAME == 'master'}
+      when { expression {env.BRANCH_NAME == 'master'} }
       environment {
         API_KEY = credentials('nuget-api-key')
       }
