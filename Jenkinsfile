@@ -79,7 +79,7 @@ pipeline {
         API_KEY = credentials('nexus-nuget-apikey')
       }
       steps {
-        sh "dotnet nuget push **/*.nupkg -s 'https://packages.ptrampert.com/repository/nuget/' -k ${env.API_KEY}"
+        sh "dotnet nuget push **/*.nupkg -s 'https://packages.ptrampert.com/repository/nuget-prereleases/' -k ${env.API_KEY}"
       }
     }
 
