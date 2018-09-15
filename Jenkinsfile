@@ -2,7 +2,12 @@ def releaseInfo
 def branch
 
 pipeline {
-  agent any
+  agent {
+    docker {
+      image 'dotnet:2.1-sdk'
+      args '-v $HOME:/root'
+    }
+  }
 
   options {
     buildDiscarder(logRotator(numToKeepStr:'5'))
