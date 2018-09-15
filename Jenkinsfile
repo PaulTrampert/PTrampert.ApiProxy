@@ -5,7 +5,7 @@ pipeline {
   agent {
     docker {
       image 'microsoft/dotnet:2.1-sdk'
-      args '-v $HOME:/root'
+      args '-v $HOME/.dotnet:/.dotnet'
     }
   }
 
