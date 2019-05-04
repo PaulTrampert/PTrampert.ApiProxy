@@ -2,7 +2,12 @@ def releaseInfo
 def branch
 
 pipeline {
-  agent any
+  agent {
+    docker {
+      image 'microsoft/dotnet:2.1-sdk'
+      args '-v $HOME/.dotnet:/.dotnet -v $HOME/.nuget:/.nuget'
+    }
+  }
 
   options {
     buildDiscarder(logRotator(numToKeepStr:'5'))
@@ -79,7 +84,7 @@ pipeline {
         API_KEY = credentials('nexus-nuget-apikey')
       }
       steps {
-        sh "dotnet nuget push **/*.nupkg -s 'https://packages.ptrampert.com/repository/nuget/' -k ${env.API_KEY}"
+        sh "dotnet nuget push **/*.nupkg -s 'https://packages.ptrampert.com/repository/nuget-prereleases/' -k ${env.API_KEY}"
       }
     }
 
