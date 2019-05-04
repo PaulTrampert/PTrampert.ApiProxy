@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PTrampert.ApiProxy;
 
+// ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection
 {
     /// <summary>
@@ -34,7 +35,7 @@ namespace Microsoft.Extensions.DependencyInjection
         /// <returns>The <see cref="IServiceCollection"/></returns>
         public static IServiceCollection AddApiProxy(this IServiceCollection services, Action<ApiProxyConfig> setupAction)
         {
-            services.Configure<ApiProxyConfig>(setupAction);
+            services.Configure(setupAction);
             return Common(services);
         }
 
