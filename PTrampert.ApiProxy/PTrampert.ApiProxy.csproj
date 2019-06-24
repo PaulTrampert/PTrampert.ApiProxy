@@ -6,6 +6,7 @@
     <Authors>pjt15253</Authors>
     <Description>Provides an api proxy route to an ASP.NET Core app.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/PaulTrampert/PTrampert.ApiProxy</PackageProjectUrl>
     <PackageReleaseNotes>https://github.com/PaulTrampert/PTrampert.ApiProxy/releases</PackageReleaseNotes>
     <PackageTags>proxy api api-gateway asp-net-core dotnet-core</PackageTags>
     <RepositoryUrl>https://github.com:PaulTrampert/PTrampert.ApiProxy.git</RepositoryUrl>
