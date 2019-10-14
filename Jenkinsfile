@@ -4,7 +4,7 @@ def releaseInfo
 pipeline {
   agent {
     docker {
-      image "mcr.microsoft.com/dotnet/core/sdk:2.2"
+      image "mcr.microsoft.com/dotnet/core/sdk:3.0"
       args "-e HOME=$HOME"
     }
   }
@@ -39,7 +39,7 @@ pipeline {
 
 		stage('Test') {
 			steps {
-				sh "dotnet test ${PROJECT_NAME}.Test/${PROJECT_NAME}.Test.csproj -l trx"
+				sh "dotnet test ${PROJECT_NAME}.Test/${PROJECT_NAME}.Test.csproj -l trx -f netcoreapp3.0"
 			}
 
 			post {
