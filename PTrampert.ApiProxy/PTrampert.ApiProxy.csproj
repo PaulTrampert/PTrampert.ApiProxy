@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netcoreapp3.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>pjt15253</Authors>
     <Description>Provides an api proxy route to an ASP.NET Core app.</Description>
@@ -14,10 +14,14 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.ViewFeatures" Version="2.1.2" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.1.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>
