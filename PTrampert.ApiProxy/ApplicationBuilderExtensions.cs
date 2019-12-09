@@ -14,11 +14,19 @@ namespace Microsoft.AspNetCore.Builder
         /// <returns>The <see cref="IApplicationBuilder"/></returns>
         public static IApplicationBuilder UseApiProxy(this IApplicationBuilder appBuilder, string basePath = "api")
         {
+#if NETSTANDARD2_0
             appBuilder.UseMvc(routes =>
             {
                 routes.MapRoute("PTrampert.ApiProxy", $"{basePath.TrimEnd('/')}/{{api}}/{{*path}}",
                     new {controller = "ApiProxy", action = "Proxy"});
             });
+#else
+            appBuilder.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllerRoute("PTrampert.ApiProxy", $"{basePath.TrimEnd('/')}/{{api}}/{{*path}}",
+                    new {controller = "ApiProxy", action = "Proxy"});
+            });
+#endif
             return appBuilder;
         }
     }
