@@ -15,7 +15,7 @@ namespace PTrampert.ApiProxy
         /// </summary>
         public string BaseUrl
         {
-            get => baseUrl.TrimEnd('/');
+            get => baseUrl?.TrimEnd('/');
             set => baseUrl = value;
         }
 
