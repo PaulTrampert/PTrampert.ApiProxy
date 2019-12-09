@@ -20,7 +20,7 @@ namespace Microsoft.AspNetCore.Builder
                 routes.MapRoute("PTrampert.ApiProxy", $"{basePath.TrimEnd('/')}/{{api}}/{{*path}}",
                     new {controller = "ApiProxy", action = "Proxy"});
             });
-#elif NETCOREAPP3_0
+#else
             appBuilder.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllerRoute("PTrampert.ApiProxy", $"{basePath.TrimEnd('/')}/{{api}}/{{*path}}",
