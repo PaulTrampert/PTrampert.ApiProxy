@@ -41,6 +41,9 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IServiceCollection Common(IServiceCollection services)
         {
+#if NETCOREAPP3_0
+            services.AddControllers();
+#endif
             services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();
             services.TryAddSingleton<HttpClient>();
             return services;
