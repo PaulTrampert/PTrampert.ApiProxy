@@ -87,3 +87,6 @@ public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerF
 
 The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
+
+#### Running the Sample App
+A small sample app is included in this project. To run it, simply run `docker compose up`. You can make a `GET` request to `http://localhost:8080/api/SampleApi/AuthEcho` to proxy a request to the `AuthEchoController` in the sample api through the api proxy.

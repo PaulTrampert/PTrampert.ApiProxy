@@ -43,7 +43,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             services.AddControllers();
             services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();
-            services.TryAddSingleton<HttpClient>();
+            services.AddHttpClient();
             return services;
         }
     }
