@@ -9,9 +9,16 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.Test", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.SampleApp", "PTrampert.ApiProxy.SampleApp\PTrampert.ApiProxy.SampleApp.csproj", "{6E15493F-7145-4049-8F27-3D4DC51F49F5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTrampert.ApiProxy.SampleApp.Api", "PTrampert.ApiProxy.SampleApp.Api\PTrampert.ApiProxy.SampleApp.Api.csproj", "{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.SampleApp.Api", "PTrampert.ApiProxy.SampleApp.Api\PTrampert.ApiProxy.SampleApp.Api.csproj", "{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}"
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{78CAB125-3FF0-42AA-A272-B47C0A91EEA3}"
+	ProjectSection(SolutionItems) = preProject
+		Jenkinsfile = Jenkinsfile
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
