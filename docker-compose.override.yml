@@ -1,0 +1,15 @@
+version: '3.4'
+
+services:
+  ptrampert.apiproxy.sampleapp:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "80"
+
+  ptrampert.apiproxy.sampleapp.api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "80"
+
