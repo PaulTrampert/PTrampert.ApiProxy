@@ -1,0 +1,17 @@
+version: '3.4'
+
+services:
+  ptrampert.apiproxy.sampleapp:
+    image: ${DOCKER_REGISTRY-}ptrampertapiproxysampleapp
+    build:
+      context: .
+      dockerfile: PTrampert.ApiProxy.SampleApp/Dockerfile
+    ports:
+      - 8080:80
+
+  ptrampert.apiproxy.sampleapp.api:
+    image: ${DOCKER_REGISTRY-}ptrampertapiproxysampleappapi
+    build:
+      context: .
+      dockerfile: PTrampert.ApiProxy.SampleApp.Api/Dockerfile
+

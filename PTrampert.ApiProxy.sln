@@ -1,11 +1,24 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2019
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32929.385
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTrampert.ApiProxy", "PTrampert.ApiProxy\PTrampert.ApiProxy.csproj", "{F7F60736-7B31-45BB-8F06-5B050100811B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy", "PTrampert.ApiProxy\PTrampert.ApiProxy.csproj", "{F7F60736-7B31-45BB-8F06-5B050100811B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PTrampert.ApiProxy.Test", "PTrampert.ApiProxy.Test\PTrampert.ApiProxy.Test.csproj", "{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.Test", "PTrampert.ApiProxy.Test\PTrampert.ApiProxy.Test.csproj", "{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.SampleApp", "PTrampert.ApiProxy.SampleApp\PTrampert.ApiProxy.SampleApp.csproj", "{6E15493F-7145-4049-8F27-3D4DC51F49F5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PTrampert.ApiProxy.SampleApp.Api", "PTrampert.ApiProxy.SampleApp.Api\PTrampert.ApiProxy.SampleApp.Api.csproj", "{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{78CAB125-3FF0-42AA-A272-B47C0A91EEA3}"
+	ProjectSection(SolutionItems) = preProject
+		Jenkinsfile = Jenkinsfile
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +34,18 @@ Global
 		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D27D52C-713D-4B52-AAA6-C37322AD8D6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E15493F-7145-4049-8F27-3D4DC51F49F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E15493F-7145-4049-8F27-3D4DC51F49F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E15493F-7145-4049-8F27-3D4DC51F49F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E15493F-7145-4049-8F27-3D4DC51F49F5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7588AAEF-29F6-4022-8DAA-7B63EB0C7DE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{71E738C5-D94F-4103-BF3F-EC79F0B13AB2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
