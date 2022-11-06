@@ -81,7 +81,7 @@ pipeline {
 
 		stage('Package') {
 			steps {
-				sh "dotnet pack ${PROJECT_NAME}/${PROJECT_NAME}.csproj -c Release /p:Version=${releaseInfo.nextVersion().toString()}"
+				sh "dotnet pack ${PROJECT_NAME}/${PROJECT_NAME}.csproj -c Release --include-source /p:Version=${releaseInfo.nextVersion().toString()}"
 			}
 		}
 
@@ -125,7 +125,7 @@ pipeline {
       )
     }
     always {
-      archiveArtifacts '**/*.nupkg'
+      archiveArtifacts '**/*.nupkg, **/*.snupkg'
     }
   }
 }
