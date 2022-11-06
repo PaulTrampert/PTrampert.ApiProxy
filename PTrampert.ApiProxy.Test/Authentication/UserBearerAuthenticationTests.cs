@@ -54,10 +54,12 @@ namespace PTrampert.ApiProxy.Test.Authentication
             Assert.That(result.Parameter, Is.EqualTo("token"));
         }
 
-        [Test]
-        public async Task GetAuthenticationHeaderReturnsTokenFromCookieProps()
+        [TestCase("oidc")]
+        [TestCase("herp")]
+        [TestCase(null)]
+        public async Task GetAuthenticationHeaderReturnsTokenFromCookieProps(string scheme)
         {
-            authService.Setup(a => a.AuthenticateAsync(httpContext, It.IsAny<string>()))
+            authService.Setup(a => a.AuthenticateAsync(httpContext, scheme))
                 .ReturnsAsync(
                     AuthenticateResult.Success(
                         new AuthenticationTicket(
@@ -71,10 +73,13 @@ namespace PTrampert.ApiProxy.Test.Authentication
                     )
                 );
 
+            subject.AuthScheme = scheme;
+
             var result = await subject.GetAuthenticationHeader();
 
             Assert.That(result.Scheme, Is.EqualTo("Bearer"));
             Assert.That(result.Parameter, Is.EqualTo("token"));
+            authService.Verify(a => a.AuthenticateAsync(httpContext, scheme));
         }
 
         [Test]
