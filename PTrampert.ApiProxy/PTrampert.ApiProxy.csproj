@@ -9,13 +9,20 @@
     <PackageProjectUrl>https://github.com/PaulTrampert/PTrampert.ApiProxy</PackageProjectUrl>
     <PackageReleaseNotes>https://github.com/PaulTrampert/PTrampert.ApiProxy/releases</PackageReleaseNotes>
     <PackageTags>proxy api api-gateway asp-net-core dotnet-core</PackageTags>
-    <RepositoryUrl>https://github.com:PaulTrampert/PTrampert.ApiProxy.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/PaulTrampert/PTrampert.ApiProxy.git</RepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>
