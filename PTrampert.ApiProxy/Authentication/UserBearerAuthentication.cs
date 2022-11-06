@@ -29,6 +29,11 @@ namespace PTrampert.ApiProxy.Authentication
         /// </summary>
         public string TokenKey { get; set; } = "access_token";
 
+        /// <summary>
+        /// The auth scheme for the token storage. Only used with <see cref="TokenMode.AuthProps"/>.
+        /// </summary>
+        public string AuthScheme { get; set; } = null;
+
         private readonly IHttpContextAccessor httpContext;
 
         /// <summary>
@@ -53,7 +58,7 @@ namespace PTrampert.ApiProxy.Authentication
                     token = httpContext.HttpContext.User.FindFirst(TokenKey).Value;
                     break;
                 case TokenMode.AuthProps:
-                    token = await httpContext.HttpContext.GetTokenAsync(TokenKey);
+                    token = await httpContext.HttpContext.GetTokenAsync(AuthScheme, TokenKey);
                     break;
             }
             return new AuthenticationHeaderValue("Bearer", token);
