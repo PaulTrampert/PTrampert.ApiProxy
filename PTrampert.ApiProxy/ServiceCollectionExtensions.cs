@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PTrampert.ApiProxy;
@@ -43,6 +44,7 @@ namespace Microsoft.Extensions.DependencyInjection
         {
             services.AddControllers();
             services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();
+            services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddHttpClient();
             return services;
         }
