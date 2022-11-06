@@ -125,7 +125,7 @@ pipeline {
       )
     }
     always {
-      archiveArtifacts '**/*.nupkg'
+      archiveArtifacts '**/*.nupkg, **/*.snupkg'
     }
   }
 }
