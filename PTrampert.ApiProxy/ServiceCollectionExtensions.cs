@@ -43,6 +43,7 @@ namespace Microsoft.Extensions.DependencyInjection
         private static IServiceCollection Common(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddScoped<IWebSocketProxy, WebSocketProxy>();
             services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();
             services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
             services.AddHttpClient();

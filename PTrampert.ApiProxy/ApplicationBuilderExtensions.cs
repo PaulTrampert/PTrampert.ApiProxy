@@ -7,7 +7,8 @@ namespace Microsoft.AspNetCore.Builder
     public static class ApplicationBuilderExtensions
     {
         /// <summary>
-        /// Adds ApiProxy to the ASP.NET Core request pipeline with the specified base path.
+        /// Adds ApiProxy to the ASP.NET Core request pipeline with the specified base path. If any of your API's
+        /// use WebSockets (or SignalR for that matter), make sure to call app.UseWebSockets() before this.
         /// </summary>
         /// <param name="appBuilder">The <see cref="IApplicationBuilder"/>.</param>
         /// <param name="basePath">The base path to use for the api proxy. Defaults to <value>"api"</value>.</param>

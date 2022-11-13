@@ -21,6 +21,7 @@ namespace PTrampert.ApiProxy.Test
         private ApiProxyConfig proxyConfig;
         private TestHttpHandler messageHandler;
         private Mock<IAuthenticationFactory> authBuilder;
+        private Mock<IWebSocketProxy> webSocketProxy;
 
         [SetUp]
         public void SetUp()
@@ -32,7 +33,8 @@ namespace PTrampert.ApiProxy.Test
             var proxyConfigOpts = new Mock<IOptions<ApiProxyConfig>>();
             proxyConfigOpts.SetupGet(o => o.Value).Returns(proxyConfig);
             authBuilder = new Mock<IAuthenticationFactory>();
-            subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object);
+            webSocketProxy = new Mock<IWebSocketProxy>();
+            subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object, webSocketProxy.Object);
             subject.ControllerContext = new ControllerContext
             {
                 HttpContext = new DefaultHttpContext()
