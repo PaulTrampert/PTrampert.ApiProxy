@@ -18,8 +18,8 @@ public class WebSocketProxy : IWebSocketProxy
             context.RequestAborted);
         using var frontEndSocket = await context.WebSockets.AcceptWebSocketAsync();
         
-        var frontToBack = ProxyFrontToBack(frontEndSocket, backEndSocket, context.RequestAborted);
-        var backToFront = ProxyBackToFront(frontEndSocket, backEndSocket, context.RequestAborted);
+        var frontToBack = Proxy(frontEndSocket, backEndSocket, context.RequestAborted);
+        var backToFront = Proxy(backEndSocket, frontEndSocket, context.RequestAborted);
 
         await Task.WhenAny(frontToBack, backToFront);
 
@@ -33,23 +33,14 @@ public class WebSocketProxy : IWebSocketProxy
         }
     }
 
-    private async Task ProxyBackToFront(WebSocket frontEnd, ClientWebSocket backEnd, CancellationToken c)
+    private async Task Proxy(WebSocket from, WebSocket to, CancellationToken c)
     {
         var buffer = new Memory<byte>(new byte[BufferSize]);
-        while (!c.IsCancellationRequested && !frontEnd.CloseStatus.HasValue && !backEnd.CloseStatus.HasValue)
+        while (!c.IsCancellationRequested && !to.CloseStatus.HasValue && !from.CloseStatus.HasValue)
         {
-            var receiveResult = await backEnd.ReceiveAsync(buffer, c);
-            await frontEnd.SendAsync(buffer[..receiveResult.Count], receiveResult.MessageType, receiveResult.EndOfMessage, c);
-        }
-    }
-
-    private async Task ProxyFrontToBack(WebSocket frontEnd, WebSocket backEnd, CancellationToken c)
-    {
-        var buffer = new Memory<byte>(new byte[BufferSize]);
-        while (!c.IsCancellationRequested && !frontEnd.CloseStatus.HasValue && !backEnd.CloseStatus.HasValue)
-        {
-            var receiveResult = await frontEnd.ReceiveAsync(buffer, c);
-            await backEnd.SendAsync(buffer[..receiveResult.Count], receiveResult.MessageType, receiveResult.EndOfMessage, c);
+            var receiveResult = await from.ReceiveAsync(buffer, c);
+            if (receiveResult.Count > 0)
+                await to.SendAsync(buffer[..receiveResult.Count], receiveResult.MessageType, receiveResult.EndOfMessage, c);
         }
     }
 }
