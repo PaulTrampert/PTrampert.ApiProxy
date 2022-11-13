@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace PTrampert.ApiProxy;
 
-public class WebSocketProxy : IWebSocketProxy
+internal class WebSocketProxy : IWebSocketProxy
 {
     private const int BufferSize = 4096;
     
