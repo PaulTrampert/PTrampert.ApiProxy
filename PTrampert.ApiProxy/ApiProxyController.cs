@@ -23,6 +23,7 @@ namespace PTrampert.ApiProxy
         private readonly IAuthenticationFactory authFactory;
         private readonly ILogger<ApiProxyController> log;
         private readonly ApiProxyConfig proxyConfig;
+        private readonly IWebSocketProxy webSocketProxy;
 
         /// <summary>
         /// Constructor for <see cref="ApiProxyController"/>
@@ -31,10 +32,11 @@ namespace PTrampert.ApiProxy
         /// <param name="proxyConfig">The <see cref="ApiProxyConfig"/> containing configured API's.</param>
         /// <param name="authFactory">The <see cref="IAuthenticationFactory"/>.</param>
         /// <param name="log">The <see cref="ILogger{ApiProxyController}"/></param>
-        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, ILogger<ApiProxyController> log = null)
+        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, IWebSocketProxy webSocketProxy, ILogger<ApiProxyController> log = null)
         {
             this.httpClient = httpClient;
             this.authFactory = authFactory;
+            this.webSocketProxy = webSocketProxy;
             this.log = log;
             this.proxyConfig = proxyConfig.Value;
         }
@@ -54,6 +56,17 @@ namespace PTrampert.ApiProxy
 
             var apiConfig = proxyConfig[api];
 
+            if (HttpContext.WebSockets.IsWebSocketRequest)
+            {
+                if (apiConfig.WsBaseUrl == null)
+                {
+                    throw new ProxyException($"API {api} not configured to use WebSockets.",
+                        (int) HttpStatusCode.BadRequest);
+                }
+                await webSocketProxy.Proxy(HttpContext, apiConfig, path);
+                return new EmptyResult();
+            }
+            
             var response = await MakeRequest(apiConfig, path);
             
             Response.StatusCode = (int) response.StatusCode;

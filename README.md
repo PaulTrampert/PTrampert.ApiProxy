@@ -3,7 +3,8 @@ Provides an api proxy route to an ASP.NET Core app.
 
 ## Basic Usage
 In `Startup.ConfigureServices`, use `AddApiProxy`. You can either pass in an `IConfiguration` that maps to `ApiProxyConfig`, or use configuration action.
-Then, in `Startup.Configure`, use `app.UseApiProxy` to register the proxy route.
+Then, in `Startup.Configure`, use `app.UseApiProxy` to register the proxy route. If you want to proxy api's that use web sockets, make sure to call `app.UseWebSockets()`
+before `app.UseApiProxy()`.
 
 #### `IConfiguration` Example
 `appConfig.json`
@@ -12,6 +13,10 @@ Then, in `Startup.Configure`, use `app.UseApiProxy` to register the proxy route.
   "ApiProxyConfig": {
     "simple": {
       "BaseUrl": "https://example1.com"
+    },
+    "simple-with-websockets": {
+      "BaseUrl": "https://example1.com",
+      "WsBaseUrl": "wss://example1.com"
     },
     "basic-auth": {
       "BaseUrl": "https://example2.com/protected-resources",
@@ -37,7 +42,7 @@ Then, in `Startup.Configure`, use `app.UseApiProxy` to register the proxy route.
   }
 }
 ```
-`Startup.cs`
+`Program.cs`
 ```csharp
 services.AddApiProxy(config.GetSection("ApiProxyConfig"));
 ```
@@ -78,15 +83,15 @@ services.AddApiProxy(cfg =>
 
 #### `Startup.Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)`
 ```csharp
-public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
+  // If proxying WebSockets, call this before UseApiProxy().
+  app.UseWebSockets();
   // Pipeline steps before the proxy
   app.UseApiProxy("apiproxy");
   // Pipeline steps after the proxy
-}
 ```
 
 The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
 
 #### Running the Sample App
-A small sample app is included in this project. To run it, simply run `docker compose up`. You can make a `GET` request to `http://localhost:8080/api/SampleApi/AuthEcho` to proxy a request to the `AuthEchoController` in the sample api through the api proxy.
+A small sample app is included in this project. To run it, simply run `docker compose up`.

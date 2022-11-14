@@ -21,6 +21,12 @@ namespace PTrampert.ApiProxy.Test
         private ApiProxyConfig proxyConfig;
         private TestHttpHandler messageHandler;
         private Mock<IAuthenticationFactory> authBuilder;
+        private Mock<IWebSocketProxy> webSocketProxy;
+        private Mock<HttpContext> httpContext;
+        private Mock<HttpRequest> httpRequest;
+        private Mock<WebSocketManager> webSockets;
+        private Mock<HttpResponse> httpResponse;
+        private Mock<IHeaderDictionary> responseHeaders;
 
         [SetUp]
         public void SetUp()
@@ -32,10 +38,29 @@ namespace PTrampert.ApiProxy.Test
             var proxyConfigOpts = new Mock<IOptions<ApiProxyConfig>>();
             proxyConfigOpts.SetupGet(o => o.Value).Returns(proxyConfig);
             authBuilder = new Mock<IAuthenticationFactory>();
-            subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object);
+            webSocketProxy = new Mock<IWebSocketProxy>();
+            httpContext = new Mock<HttpContext>();
+            httpRequest = new Mock<HttpRequest>();
+            httpRequest.SetupAllProperties();
+            httpContext.SetupGet(c => c.Request)
+                .Returns(httpRequest.Object);
+            webSockets = new Mock<WebSocketManager>();
+            webSockets.SetupGet(ws => ws.IsWebSocketRequest)
+                .Returns(false);
+            httpContext.SetupGet(c => c.WebSockets)
+                .Returns(webSockets.Object);
+            responseHeaders = new Mock<IHeaderDictionary>();
+            responseHeaders.SetupAllProperties();
+            httpResponse = new Mock<HttpResponse>();
+            httpResponse.SetupAllProperties();
+            httpResponse.SetupGet(r => r.Headers)
+                .Returns(responseHeaders.Object);
+            httpContext.SetupGet(c => c.Response)
+                .Returns(httpResponse.Object);
+            subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object, webSocketProxy.Object);
             subject.ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext()
+                HttpContext = httpContext.Object
             };
         }
 
@@ -120,7 +145,7 @@ namespace PTrampert.ApiProxy.Test
                 foreach (var pair in headers.Split('&'))
                 {
                     var kv = pair.Split('=');
-                    Assert.That(subject.Response.Headers[kv[0]].ToString(), Is.EqualTo(kv[1]));
+                    responseHeaders.Verify(h => h.Add(kv[0], kv[1]));
                 }
             }
         }
@@ -132,7 +157,8 @@ namespace PTrampert.ApiProxy.Test
             {
                 BaseUrl = "https://example.com"
             });
-            subject.Request.Method = "GET";
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
             var auth = new Mock<IAuthentication>();
             var authHeader = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret")));
             auth.Setup(a => a.GetAuthenticationHeader()).ReturnsAsync(authHeader);
@@ -141,6 +167,38 @@ namespace PTrampert.ApiProxy.Test
             await subject.Proxy("fake", "some/path");
 
             Assert.That(messageHandler.LastRequestAuthenticationHeader, Is.SameAs(authHeader));
+        }
+
+        [Test]
+        public async Task ItProxiesWebSocketConnectionsWhenRequested()
+        {
+            var apiConfig = new ApiConfig
+            {
+                WsBaseUrl = "ws://example.com"
+            };
+            proxyConfig.Add("fake", apiConfig);
+            webSockets.SetupGet(ws => ws.IsWebSocketRequest)
+                .Returns(true);
+
+            var result = await subject.Proxy("fake", "some/path");
+            
+            webSocketProxy.Verify(wsp => wsp.Proxy(httpContext.Object, apiConfig, "some/path"));
+            Assert.That(result, Is.TypeOf<EmptyResult>());
+        }
+
+        [Test]
+        public async Task ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
+        {
+            var apiConfig = new ApiConfig
+            {
+                WsBaseUrl = null
+            };
+            proxyConfig.Add("fake", apiConfig);
+            webSockets.SetupGet(ws => ws.IsWebSocketRequest)
+                .Returns(true);
+
+            var exception = Assert.ThrowsAsync<ProxyException>(async () => await subject.Proxy("fake", "some/path"));
+            Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
 }
