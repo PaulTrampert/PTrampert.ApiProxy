@@ -13,9 +13,7 @@ internal class WebSocketProxy : IWebSocketProxy
     
     public async Task Proxy(HttpContext context, ApiConfig api, string path)
     {
-        using var backEndSocket = new ClientWebSocket();
-        await backEndSocket.ConnectAsync(new Uri($"{api.BaseUrl}/{path}{context.Request.QueryString.Value}"),
-            context.RequestAborted);
+        using var backEndSocket = await GetClientSocket(new Uri($"{api.BaseUrl}/{path}{context.Request.QueryString.Value}"), context.RequestAborted);
         using var frontEndSocket = await context.WebSockets.AcceptWebSocketAsync();
         
         var frontToBack = Proxy(frontEndSocket, backEndSocket, context.RequestAborted);
@@ -31,6 +29,13 @@ internal class WebSocketProxy : IWebSocketProxy
         {
             await frontEndSocket.CloseAsync(backEndSocket.CloseStatus.Value, backEndSocket.CloseStatusDescription, context.RequestAborted);
         }
+    }
+
+    public virtual async Task<WebSocket> GetClientSocket(Uri uri, CancellationToken c)
+    {
+        var backEndSocket = new ClientWebSocket();
+        await backEndSocket.ConnectAsync(uri, c);
+        return backEndSocket;
     }
 
     private async Task Proxy(WebSocket from, WebSocket to, CancellationToken c)
