@@ -1,5 +1,7 @@
 import Container from 'react-bootstrap/Container';
 import Navbar from 'react-bootstrap/Navbar';
+import ApiCard from "./ApiCard";
+
 
 function App() {
   return (
@@ -11,6 +13,11 @@ function App() {
           </Container>
         </Navbar>
       </header>
+      <main>
+        <Container>
+          <ApiCard />
+        </Container>
+      </main>
     </div>
   );
 }
