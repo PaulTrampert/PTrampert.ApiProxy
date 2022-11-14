@@ -12,10 +12,18 @@ COPY . .
 WORKDIR "/src/PTrampert.ApiProxy.SampleApp"
 RUN dotnet build "PTrampert.ApiProxy.SampleApp.csproj" -c Release -o /app/build
 
+FROM node:lts AS node-build
+WORKDIR /src
+COPY ["PTrampert.ApiProxy.SampleApp/sample-app/package.json", "PTrampert.ApiProxy.SampleApp/sample-app/package-lock.json", "./"]
+RUN npm install
+COPY PTrampert.ApiProxy.SampleApp/sample-app/ ./
+RUN npm run build
+
 FROM build AS publish
 RUN dotnet publish "PTrampert.ApiProxy.SampleApp.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=node-build /src/build/ ./wwwroot/
 ENTRYPOINT ["dotnet", "PTrampert.ApiProxy.SampleApp.dll"]
