@@ -33,7 +33,7 @@ public class WebSocketProxyTest
     {
         Api = new ApiConfig
         {
-            BaseUrl = "http://example.com"
+            WsBaseUrl = "ws://example.com"
         };
         CancellationToken = CancellationToken.None;
 
@@ -67,13 +67,13 @@ public class WebSocketProxyTest
             .ReturnsAsync(BackEndSocket.Object);
     }
 
-    [TestCase("http://example.com", "some/path", "?some=param", "http://example.com/some/path?some=param")]
-    [TestCase("http://www.example.com", "some/path", "?other=param", "http://www.example.com/some/path?other=param")]
-    [TestCase("http://example.com", "", null, "http://example.com")]
-    [TestCase("http://example.com", null, null, "http://example.com")]
+    [TestCase("ws://example.com", "some/path", "?some=param", "ws://example.com/some/path?some=param")]
+    [TestCase("ws://www.example.com", "some/path", "?other=param", "ws://www.example.com/some/path?other=param")]
+    [TestCase("ws://example.com", "", null, "ws://example.com")]
+    [TestCase("ws://example.com", null, null, "ws://example.com")]
     public async Task ItGetsTheBackEndSocketUsingTheProvidedPathAndBaseUrl(string baseUrl, string path, string query, string expectedUrl)
     {
-        Api.BaseUrl = baseUrl;
+        Api.WsBaseUrl = baseUrl;
         Request.SetupGet(r => r.QueryString)
             .Returns(new QueryString(query));
         await Subject.Object.Proxy(Context.Object, Api, path);

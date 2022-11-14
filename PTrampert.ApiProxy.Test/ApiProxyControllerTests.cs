@@ -174,7 +174,7 @@ namespace PTrampert.ApiProxy.Test
         {
             var apiConfig = new ApiConfig
             {
-                BaseUrl = "https://example.com"
+                WsBaseUrl = "ws://example.com"
             };
             proxyConfig.Add("fake", apiConfig);
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
@@ -184,6 +184,21 @@ namespace PTrampert.ApiProxy.Test
             
             webSocketProxy.Verify(wsp => wsp.Proxy(httpContext.Object, apiConfig, "some/path"));
             Assert.That(result, Is.TypeOf<EmptyResult>());
+        }
+
+        [Test]
+        public async Task ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
+        {
+            var apiConfig = new ApiConfig
+            {
+                WsBaseUrl = null
+            };
+            proxyConfig.Add("fake", apiConfig);
+            webSockets.SetupGet(ws => ws.IsWebSocketRequest)
+                .Returns(true);
+
+            var exception = Assert.ThrowsAsync<ProxyException>(async () => await subject.Proxy("fake", "some/path"));
+            Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
 }
