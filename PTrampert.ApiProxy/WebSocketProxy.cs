@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
 using System.Threading;
@@ -13,7 +14,8 @@ internal class WebSocketProxy : IWebSocketProxy
     
     public async Task Proxy(HttpContext context, ApiConfig api, string path)
     {
-        using var backEndSocket = await GetClientSocket(new Uri($"{api.BaseUrl}/{path}{context.Request.QueryString.Value}"), context.RequestAborted);
+        Debug.Assert(api.WsBaseUrl != null);
+        using var backEndSocket = await GetClientSocket(new Uri($"{api.WsBaseUrl}/{path}{context.Request.QueryString.Value}"), context.RequestAborted);
         using var frontEndSocket = await context.WebSockets.AcceptWebSocketAsync();
         
         var frontToBack = Proxy(frontEndSocket, backEndSocket, context.RequestAborted);

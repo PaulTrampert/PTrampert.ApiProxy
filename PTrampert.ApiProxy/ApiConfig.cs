@@ -9,6 +9,7 @@ namespace PTrampert.ApiProxy
     public class ApiConfig
     {
         private string baseUrl;
+        private string wsBaseUrl;
 
         /// <summary>
         /// The BaseUrl for a proxied API. This value is required, and should be a fully qualified URL.
@@ -17,6 +18,12 @@ namespace PTrampert.ApiProxy
         {
             get => baseUrl?.TrimEnd('/');
             set => baseUrl = value;
+        }
+
+        public string WsBaseUrl
+        {
+            get => wsBaseUrl?.TrimEnd('/');
+            set => wsBaseUrl = value;
         }
 
 

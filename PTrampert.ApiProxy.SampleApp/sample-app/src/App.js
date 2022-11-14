@@ -1,6 +1,9 @@
 import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
 import Navbar from 'react-bootstrap/Navbar';
 import ApiCard from "./ApiCard";
+import WebSocketCard from "./WebSocketCard";
 
 
 function App() {
@@ -15,7 +18,14 @@ function App() {
       </header>
       <main>
         <Container>
-          <ApiCard />
+          <Row>
+            <Col>
+              <ApiCard />
+            </Col>
+            <Col>
+              <WebSocketCard />
+            </Col>
+          </Row>
         </Container>
       </main>
     </div>

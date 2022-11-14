@@ -58,6 +58,11 @@ namespace PTrampert.ApiProxy
 
             if (HttpContext.WebSockets.IsWebSocketRequest)
             {
+                if (apiConfig.WsBaseUrl == null)
+                {
+                    throw new ProxyException($"API {api} not configured to use WebSockets.",
+                        (int) HttpStatusCode.BadRequest);
+                }
                 await webSocketProxy.Proxy(HttpContext, apiConfig, path);
                 return new EmptyResult();
             }

@@ -11,20 +11,20 @@ async function callApi(setResponse) {
 }
 
 export default function ApiCard() {
-  let [apiResponse, setApiResponse] = useState({});
+  let [apiResponse, setApiResponse] = useState([]);
 
   useEffect(() => {
     callApi(setApiResponse);
-  });
+  }, [apiResponse[0]]);
 
   return (
-    <Card style={{width: '18rem'}}>
+    <Card>
       <Card.Header>
         API Proxy Test
       </Card.Header>
       <Card.Body>
         <pre>
-          {JSON.stringify(apiResponse, null, 4) || "No Response"}
+          {apiResponse.length ? JSON.stringify(apiResponse, null, 4) : "No Response"}
         </pre>
       </Card.Body>
     </Card>
