@@ -6,6 +6,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
     ports:
       - "80"
+    volumes:
+      - ./PTrampert.ApiProxy.SampleApp/sample-app/build/:/app/wwwroot/
 
   ptrampert.apiproxy.sampleapp.api:
     environment:

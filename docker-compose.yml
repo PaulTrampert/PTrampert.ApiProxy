@@ -8,8 +8,6 @@ services:
       dockerfile: PTrampert.ApiProxy.SampleApp/Dockerfile
     ports:
       - 8080:80
-    volumes:
-      - ./PTrampert.ApiProxy.SampleApp/sample-app/build/:/app/wwwroot/
 
   ptrampert.apiproxy.sampleapp.api:
     image: ${DOCKER_REGISTRY-}ptrampertapiproxysampleappapi
