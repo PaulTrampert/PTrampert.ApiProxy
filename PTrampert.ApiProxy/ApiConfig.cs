@@ -20,6 +20,9 @@ namespace PTrampert.ApiProxy
             set => baseUrl = value;
         }
 
+        /// <summary>
+        /// The base url for WebSockets on a proxied API. This value is required to use WebSockets, but can be omitted otherwise.
+        /// </summary>
         public string WsBaseUrl
         {
             get => wsBaseUrl?.TrimEnd('/');
