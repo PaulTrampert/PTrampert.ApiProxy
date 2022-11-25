@@ -1,0 +1,36 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  push:
+    branches: [ "dev", "master" ]
+  pull_request:
+    branches: [ "dev", "master" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 6.0.x
+    - name: Calculate Version
+      uses: paulhatch/semantic-version@v4.0.3
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore -c Release /p:Version=${version}
+    - name: Test
+      run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj --no-build --verbosity normal -c Release
+    - name: Pack
+      run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj --no-build -c Release --include-source /p:Version=${version}
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3.1.1
+      with:
+        path: "**/*.s?nupkg"
