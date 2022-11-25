@@ -23,9 +23,9 @@ jobs:
     - name: Calculate Version
       uses: paulhatch/semantic-version@v4.0.3
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore PTrampert.ApiProxy.sln
     - name: Build
-      run: dotnet build --no-restore -c Release /p:Version=${version}
+      run: dotnet build PTrampert.ApiProxy.sln --no-restore -c Release /p:Version=${version}
     - name: Test
       run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj --no-build --verbosity normal -c Release
     - name: Pack
