@@ -30,6 +30,8 @@ jobs:
       run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj
     - name: Pack
       run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release --include-source /p:Version=$version
+      env:
+        version: $version
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.1
       with:
