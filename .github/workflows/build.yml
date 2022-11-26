@@ -23,7 +23,7 @@ jobs:
         
     - name: Set Prerelease Pattern
       run: |
-        echo "PRERELEASE_PATTERN=-${GITHUB_REF_NAME}\${increment}" >> $GITHUB_ENV
+        echo "PRERELEASE_PATTERN=-${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}\${increment}" >> $GITHUB_ENV
       if: ${{env.GITHUB_REF_NAME != 'master'}}
     
     - name: Check env
