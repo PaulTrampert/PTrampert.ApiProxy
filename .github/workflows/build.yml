@@ -23,7 +23,7 @@ jobs:
         
     - name: Set Prerelease Pattern
       run: |
-        echo "PRERELEASE_PATTERN=${GITHUB_REF_NAME}\${increment}" >> $GITHUB_ENV
+        echo "PRERELEASE_PATTERN=-${GITHUB_REF_NAME}\${increment}" >> $GITHUB_ENV
       if: ${{env.GITHUB_REF_NAME != 'master'}}
     
     - name: Check env
@@ -38,7 +38,7 @@ jobs:
       id: versioning
       uses: paulhatch/semantic-version@v5.0.0-beta
       with:
-        version_format: ${{join([env.VERSION_FORMAT, env.PRERELEASE_PATTERN], '-')}}
+        version_format: ${{"${env.VERSION_FORMAT}${env.PRERELEASE_PATTERN}"}}
         
     - name: Restore dependencies
       run: dotnet restore PTrampert.ApiProxy.sln
