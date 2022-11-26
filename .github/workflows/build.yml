@@ -20,29 +20,37 @@ jobs:
     - uses: actions/checkout@v3
       with:
         fetch-depth: 0
+        
     - name: Set Version Format for Prerelease
       run: |
         echo "VERSION_FORMAT=${major}.${minor}.${patch}-prerelease${increment}" >> $GITHUB_ENV
-      if: ${{env.GITHUB_REF_NAME != "master"}}
+      if: ${{env.GITHUB_REF_NAME != 'master'}}
+      
+    - name: Check env
+      run: env
+      
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 6.0.x
+        
     - name: Calculate Version
       id: versioning
       uses: paulhatch/semantic-version@v5.0.0-beta
       with:
         format: ${{env.VERSION_FORMAT}}
+        
     - name: Restore dependencies
       run: dotnet restore PTrampert.ApiProxy.sln
+      
     - name: Test
       run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj
-    - name: Check env
-      run: env
+      
     - name: Pack
       run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release --include-source /p:Version=$VERSION
       env:
         VERSION: ${{steps.versioning.outputs.version}}
+        
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.1.1
       with:
