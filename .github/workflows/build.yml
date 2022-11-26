@@ -23,7 +23,7 @@ jobs:
         
     - name: Set Version Format for Prerelease
       run: |
-        echo ${{'VERSION_FORMAT=${major}.${minor}.${patch}-pre${increment}'}} >> $GITHUB_ENV
+        echo 'VERSION_FORMAT=${major}.${minor}.${patch}-pre${increment}' >> $GITHUB_ENV
       if: ${{env.GITHUB_REF_NAME != 'master'}}
       
     - name: Check env
