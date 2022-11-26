@@ -32,7 +32,7 @@ jobs:
     - name: Check env
       run: env
     - name: Pack
-      run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release -o ./package/ --include-source /p:Version=$VERSION
+      run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release --include-source /p:Version=$VERSION
       env:
         VERSION: ${{steps.versioning.outputs.version}}
     - name: Upload a Build Artifact
