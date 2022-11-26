@@ -4,7 +4,7 @@
 name: .NET
 
 env:
-  VERSION_FORMAT: "$${major}.$${minor}.$${patch}"
+  VERSION_FORMAT: "%24{major}.%24{minor}.%24{patch}"
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         
     - name: Set Version Format for Prerelease
       run: |
-        echo "VERSION_FORMAT=$${major}.$${minor}.$${patch}-prerelease$${increment}" >> $GITHUB_ENV
+        echo "VERSION_FORMAT=%24{major}.%24{minor}.%24{patch}-pre%24{increment}" >> $GITHUB_ENV
       if: ${{env.GITHUB_REF_NAME != 'master'}}
       
     - name: Check env
@@ -38,7 +38,7 @@ jobs:
       id: versioning
       uses: paulhatch/semantic-version@v5.0.0-beta
       with:
-        format: ${{env.VERSION_FORMAT}}
+        version_format: ${{env.VERSION_FORMAT}}
         
     - name: Restore dependencies
       run: dotnet restore PTrampert.ApiProxy.sln
