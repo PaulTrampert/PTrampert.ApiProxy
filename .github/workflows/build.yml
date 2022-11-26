@@ -28,6 +28,8 @@ jobs:
       run: dotnet restore PTrampert.ApiProxy.sln
     - name: Test
       run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj
+    - name: Check env
+      run: env
     - name: Pack
       run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release --include-source /p:Version=$version
       env:
