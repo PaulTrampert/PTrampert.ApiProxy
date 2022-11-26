@@ -4,7 +4,7 @@
 name: .NET
 
 env:
-  VERSION_FORMAT: "${major}.${minor}.${patch}"
+  VERSION_FORMAT: "$${major}.$${minor}.$${patch}"
 
 on:
   push:
