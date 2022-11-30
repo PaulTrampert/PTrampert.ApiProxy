@@ -1,7 +1,7 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: .NET
+name: dotnet library
 
 env:
   VERSION_FORMAT: ${{'${major}.${minor}.${patch}'}}
@@ -12,7 +12,7 @@ on:
   pull_request:
     branches: [ "dev", "master" ]
 jobs:
-  nupkg:
+  package:
 
     runs-on: ubuntu-latest
 
@@ -23,11 +23,8 @@ jobs:
         
     - name: Set Prerelease Pattern
       run: |
-        echo "PRERELEASE_PATTERN=-${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}\${increment}" >> $GITHUB_ENV
+        echo "PRERELEASE_PATTERN=-${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}-\${increment}" >> $GITHUB_ENV
       if: ${{env.GITHUB_REF_NAME != 'master'}}
-    
-    - name: Check env
-      run: env
       
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
@@ -47,7 +44,7 @@ jobs:
       run: dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj
       
     - name: Pack
-      run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release --include-source /p:Version=$VERSION
+      run: dotnet pack PTrampert.ApiProxy/PTrampert.ApiProxy.csproj -c Release -o package --include-source /p:Version=$VERSION
       env:
         VERSION: ${{steps.versioning.outputs.version}}
         
@@ -55,5 +52,5 @@ jobs:
       uses: actions/upload-artifact@v3.1.1
       with:
         path: |
-          **/*.nupkg
-          **/*.snupkg
+          package/*.nupkg
+          package/*.snupkg
