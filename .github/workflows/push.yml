@@ -1,4 +1,4 @@
-name: Build and Test PR
+name: Release Workflow
 on:
   push:
     branches: ["dev", "master"]
