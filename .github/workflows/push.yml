@@ -9,6 +9,7 @@ jobs:
       project_name: PTrampert.ApiProxy
   publish-github-release:
     runs-on: ubuntu-latest
+    if: ${{env.GITHUB_REF_NAME == 'master'}}
     needs: build-test
     steps:
     - uses: actions/checkout@v3
@@ -18,7 +19,6 @@ jobs:
     - uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{needs.build-test.outputs.version_tag}}
-        prerelease: ${{env.GITHUB_REF_NAME == 'dev'}}
         files: |
           package/*.nupkg
           package/*.snupkg
