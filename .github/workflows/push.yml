@@ -17,7 +17,7 @@ jobs:
         
     - uses: softprops/action-gh-release@v1
       with:
-        name: ${{needs.build-test.outputs.version_tag}}
+        tag_name: ${{needs.build-test.outputs.version_tag}}
         prerelease: ${{env.GITHUB_REF_NAME == 'dev'}}
         files: |
           package/*.nupkg
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     steps:
-    - uses: action/checkout@v3
+    - uses: actions/checkout@v3
 
     - uses: actions/setup-dotnet@v3
       with:
