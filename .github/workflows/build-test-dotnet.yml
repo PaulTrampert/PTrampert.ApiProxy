@@ -15,15 +15,16 @@ on:
     outputs:
       version:
         description: "The calculated semantic version of the build"
-        value: ${{jobs.versioning.outputs.version}}
+        value: ${{jobs.build-test.outputs.version}}
       version_tag:
         description: "The value to use when tagging releases"
-        value: ${{jobs.versioning.outputs.version_tag}}
+        value: ${{jobs.build-test.outputs.version_tag}}
 jobs:
   build-test:
     runs-on: ubuntu-latest
     outputs:
       version: ${{steps.versioning.outputs.version}}
+      version_tag: ${{steps.versioning.outputs.version_tag}}
     steps:
     - uses: actions/checkout@v3
       with:
