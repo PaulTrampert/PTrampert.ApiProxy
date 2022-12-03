@@ -1,0 +1,45 @@
+name: Release Workflow
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+jobs:
+  build-test:
+    uses: ./.github/workflows/build-test-dotnet.yml
+    with:
+      project_name: PTrampert.ApiProxy
+  publish-github-release:
+    runs-on: ubuntu-latest
+    if: ${{github.ref == 'refs/heads/master'}}
+    needs: build-test
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/download-artifact@v3
+        
+    - uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{needs.build-test.outputs.version}}
+        files: |
+          package/*.nupkg
+          package/*.snupkg
+        fail_on_unmatched_files: true
+        target_commitish: ${{github.sha}}
+        generate_release_notes: true
+  
+  publish-nuget-package:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+    
+    - uses: actions/download-artifact@v3
+    
+    - name: Publish nuget package
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_ORG_SECRET}}
+
