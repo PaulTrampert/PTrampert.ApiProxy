@@ -13,9 +13,9 @@ on:
     branches: [ "dev", "master" ]
 jobs:
   package:
-
     runs-on: ubuntu-latest
-
+    outputs:
+      version: ${{steps.versioning.outputs.version}}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -54,3 +54,11 @@ jobs:
         path: |
           package/*.nupkg
           package/*.snupkg
+  create-release:
+    runs-on: ubuntu-latest
+    needs: package
+    steps:
+    - name: Check version
+      run: echo ${{needs.package.outputs.version}}
+    
+    
