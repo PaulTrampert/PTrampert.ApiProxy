@@ -1,0 +1,44 @@
+name: Build and Test PR
+on:
+  push:
+    branches: ["dev", "master"]
+jobs:
+  build-test:
+    uses: ./.github/workflows/build-test-dotnet.yml
+    with:
+      project_name: PTrampert.ApiProxy
+  publish-github-release:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/download-artifact@v3
+        
+    - uses: softprops/action-gh-release@v1
+      with:
+        name: ${{needs.build-test.outputs.version_tag}}
+        prerelease: ${{env.GITHUB_REF_NAME == "dev"}}
+        files: |
+          package/*.nupkg
+          package/*.snupkg
+        fail_on_unmatched_files: true
+        target_commitish: ${{env.GITHUB_SHA}}
+        token: ${{secrets.GITHUB_TOKEN}}
+        generate_release_notes: true
+  
+  publish-nuget-package:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+    - uses: action/checkout@v3
+
+    - uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+    
+    - uses: actions/download-artifact@v3
+    
+    - name: Publish nuget package
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_ORG_SECRET}}
+
