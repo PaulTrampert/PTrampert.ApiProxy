@@ -20,7 +20,7 @@ on:
         description: "The value to use when tagging releases"
         value: ${{jobs.versioning.outputs.version_tag}}
 jobs:
-  package:
+  build-test:
     runs-on: ubuntu-latest
     outputs:
       version: ${{steps.versioning.outputs.version}}
