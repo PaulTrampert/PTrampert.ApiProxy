@@ -1,0 +1,9 @@
+name: Build and Test PR
+on:
+  pull_request:
+    branches: ["dev", "master"]
+jobs:
+  build-test:
+    uses: ./.github/workflows/build-test-dotnet.yml
+    with:
+      project_name: PTrampert.ApiProxy
