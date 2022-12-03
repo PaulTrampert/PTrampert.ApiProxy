@@ -9,7 +9,7 @@ jobs:
       project_name: PTrampert.ApiProxy
   publish-github-release:
     runs-on: ubuntu-latest
-    if: ${{env.GITHUB_REF_NAME == 'master'}}
+    if: ${{github.ref == 'refs/heads/master'}}
     needs: build-test
     steps:
     - uses: actions/checkout@v3
@@ -23,8 +23,7 @@ jobs:
           package/*.nupkg
           package/*.snupkg
         fail_on_unmatched_files: true
-        target_commitish: ${{env.GITHUB_SHA}}
-        token: ${{secrets.GITHUB_TOKEN}}
+        target_commitish: ${{github.sha}}
         generate_release_notes: true
   
   publish-nuget-package:
