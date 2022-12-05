@@ -33,7 +33,8 @@ jobs:
     - name: Set Prerelease Pattern
       run: |
         echo "${{github.ref_name}}"
-        echo "PRERELEASE_PATTERN=-${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}-\${increment}" >> $GITHUB_ENV
+        RELEASE_STREAM=${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}
+        echo "PRERELEASE_PATTERN=-${RELEASE_STREAM##*/}-\${increment}" >> $GITHUB_ENV
       if: ${{github.ref_name != 'master'}}
       
     - name: Setup .NET
