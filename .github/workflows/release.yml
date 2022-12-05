@@ -1,9 +1,7 @@
 name: Release Workflow
 on:
   push:
-    branches: ["master"]
-  pull_request:
-    branches: ["master"]
+    branches: ["master", "dev"]
 jobs:
   version:
     uses: ./.github/workflows/version.yml
