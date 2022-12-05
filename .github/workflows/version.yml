@@ -36,11 +36,11 @@ jobs:
       run: |
         if [ $GITHUB_REF == ${{inputs.main_branch}} ]
         then
-          echo 'latest' >> $GITHUB_OUTPUT
+          echo 'RELEASE_STREAM=latest' >> $GITHUB_OUTPUT
         else
           RELEASE_STREAM=${GITHUB_HEAD_REF:=$GITHUB_REF_NAME}
           RELEASE_STREAM=${RELEASE_STREAM##*/}
-          echo $RELEASE_STREAM >> $GITHUB_OUTPUT
+          echo "RELEASE_STREAM=$RELEASE_STREAM" >> $GITHUB_OUTPUT
         fi
 
     - name: Set Prerelease Pattern
