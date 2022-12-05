@@ -12,6 +12,7 @@ jobs:
     uses: ./.github/workflows/build-test-dotnet.yml
     needs: version
     with:
+      version: ${{needs.version.outputs.version}}
       project_name: PTrampert.ApiProxy
 
   publish-github-release:
