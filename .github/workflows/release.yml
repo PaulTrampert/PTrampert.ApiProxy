@@ -23,8 +23,6 @@ jobs:
     - version
     - build-test
     steps:
-    - uses: actions/checkout@v3
-
     - uses: actions/download-artifact@v3
         
     - uses: softprops/action-gh-release@v1
@@ -42,8 +40,6 @@ jobs:
     needs: 
     - build-test
     steps:
-    - uses: actions/checkout@v3
-
     - uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 7.0.x

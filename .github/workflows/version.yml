@@ -31,6 +31,10 @@ jobs:
       version_tag: ${{steps.version.outputs.version_tag}}
       release_stream: ${{steps.release_stream.outputs.release_stream}}
     steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
     - name: Get Release Stream
       id: release_stream
       run: |
