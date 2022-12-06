@@ -187,7 +187,7 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
-        public async Task ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
+        public void ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
         {
             var apiConfig = new ApiConfig
             {

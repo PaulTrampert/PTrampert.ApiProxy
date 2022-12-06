@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -40,7 +41,7 @@ namespace PTrampert.ApiProxy.Authentication
         /// Constructor for <see cref="UserBearerAuthentication"/>.
         /// </summary>
         /// <param name="httpContext">The <see cref="IHttpContextAccessor"/></param>
-        public UserBearerAuthentication(IHttpContextAccessor httpContext)
+        public UserBearerAuthentication([NotNull] IHttpContextAccessor httpContext)
         {
             this.httpContext = httpContext;
         }
@@ -55,10 +56,10 @@ namespace PTrampert.ApiProxy.Authentication
             switch ((TokenMode)Enum.Parse(typeof(TokenMode), Mode))
             {
                 case TokenMode.Claims:
-                    token = httpContext.HttpContext.User.FindFirst(TokenKey).Value;
+                    token = httpContext.HttpContext!.User.FindFirst(TokenKey)?.Value;
                     break;
                 case TokenMode.AuthProps:
-                    token = await httpContext.HttpContext.GetTokenAsync(AuthScheme, TokenKey);
+                    token = await httpContext.HttpContext!.GetTokenAsync(AuthScheme, TokenKey);
                     break;
             }
             return new AuthenticationHeaderValue("Bearer", token);
