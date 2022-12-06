@@ -31,6 +31,7 @@ namespace PTrampert.ApiProxy
         /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests to downstream API's.</param>
         /// <param name="proxyConfig">The <see cref="ApiProxyConfig"/> containing configured API's.</param>
         /// <param name="authFactory">The <see cref="IAuthenticationFactory"/>.</param>
+        /// <param name="webSocketProxy">The <see cref="IWebSocketProxy"/> to use for proxying web socket requests.</param>
         /// <param name="log">The <see cref="ILogger{ApiProxyController}"/></param>
         public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, IWebSocketProxy webSocketProxy, ILogger<ApiProxyController> log = null)
         {
@@ -78,13 +79,11 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (response.Content?.Headers.ContentLength != null && response.Content.Headers.ContentLength.Value > 0)
-            {
-                var contentType = response.Content.Headers.ContentType;
-                var stream = await response.Content.ReadAsStreamAsync();
-                return File(stream, contentType.ToString());
-            }
-            return new EmptyResult();
+            if (response.Content.Headers.ContentLength is not > 0) return new EmptyResult();
+            
+            var contentType = response.Content.Headers.ContentType;
+            var stream = await response.Content.ReadAsStreamAsync();
+            return File(stream, contentType?.ToString() ?? "application/octet-stream");
         }
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
