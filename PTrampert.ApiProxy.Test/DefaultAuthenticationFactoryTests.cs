@@ -32,7 +32,7 @@ namespace PTrampert.ApiProxy.Test
         public void BuildAuthenticationReturnsNullWhenAuthTypeIsNull()
         {
             var result = subject.BuildAuthentication(config);
-            Assert.IsNull(result);
+            Assert.That(result, Is.Null);
         }
 
         [Test]
