@@ -46,5 +46,7 @@ jobs:
     - uses: actions/download-artifact@v4
     
     - name: Publish nuget package
-      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_ORG_SECRET}}
+      run: dotnet nuget push **/*.nupkg -s https://api.nuget.org/v3/index.json -k "$NUGET_ORG_SECRET"
+      env:
+        NUGET_ORG_SECRET: ${{ secrets.NUGET_ORG_SECRET }}
 
