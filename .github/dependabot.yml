@@ -9,6 +9,8 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "(PATCH)"
     groups:
       csharp-deps:
         patterns:
@@ -17,6 +19,8 @@ updates:
     directory: "/PTrampert.ApiProxy.SampleApp/sample-app/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "(PATCH)"
     groups:
       npm-deps:
         patterns:
