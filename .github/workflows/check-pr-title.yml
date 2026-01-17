@@ -1,0 +1,13 @@
+name: Check PR Title for Change Level
+
+permissions:
+  pull-requests: write
+  contents: read
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  check-pr-title:
+    uses: PaulTrampert/github-workflows/.github/workflows/check-pr-title.yml@main
