@@ -5,8 +5,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using PTrampert.ApiProxy.Exceptions;
@@ -21,7 +21,6 @@ namespace PTrampert.ApiProxy
     {
         private readonly HttpClient httpClient;
         private readonly IAuthenticationFactory authFactory;
-        private readonly ILogger<ApiProxyController> log;
         private readonly ApiProxyConfig proxyConfig;
         private readonly IWebSocketProxy webSocketProxy;
 
@@ -32,13 +31,11 @@ namespace PTrampert.ApiProxy
         /// <param name="proxyConfig">The <see cref="ApiProxyConfig"/> containing configured API's.</param>
         /// <param name="authFactory">The <see cref="IAuthenticationFactory"/>.</param>
         /// <param name="webSocketProxy">The <see cref="IWebSocketProxy"/> to use for proxying web socket requests.</param>
-        /// <param name="log">The <see cref="ILogger{ApiProxyController}"/></param>
-        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, IWebSocketProxy webSocketProxy, ILogger<ApiProxyController> log = null)
+        public ApiProxyController(HttpClient httpClient, IOptions<ApiProxyConfig> proxyConfig, IAuthenticationFactory authFactory, IWebSocketProxy webSocketProxy)
         {
             this.httpClient = httpClient;
             this.authFactory = authFactory;
             this.webSocketProxy = webSocketProxy;
-            this.log = log;
             this.proxyConfig = proxyConfig.Value;
         }
 
@@ -50,12 +47,10 @@ namespace PTrampert.ApiProxy
         /// <returns>The response.</returns>
         public async Task<IActionResult> Proxy(string api, string path)
         {
-            if (!proxyConfig.ContainsKey(api))
+            if (!proxyConfig.TryGetValue(api, out var apiConfig))
             {
                 throw new ProxyException($"No API named '{api}' configured.", (int)HttpStatusCode.NotFound);
             }
-
-            var apiConfig = proxyConfig[api];
 
             if (HttpContext.WebSockets.IsWebSocketRequest)
             {
@@ -75,7 +70,7 @@ namespace PTrampert.ApiProxy
             {
                 if (response.Headers.Contains(responseHeaderKey))
                 {
-                    Response.Headers.Add(responseHeaderKey, new StringValues(response.Headers.GetValues(responseHeaderKey).ToArray()));
+                    Response.Headers.Append(responseHeaderKey, new StringValues(response.Headers.GetValues(responseHeaderKey).ToArray()));
                 }
             }
 
@@ -89,6 +84,9 @@ namespace PTrampert.ApiProxy
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
         {
             using var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
+            
+            // Request.Body *can* be null (e.g. GET requests), so we need to use Stream.Null in that case.
+            // ReSharper disable once ConstantNullCoalescingCondition
             using var content = new StreamContent(Request.Body ?? Stream.Null);
             foreach (var requestHeaderKey in apiConfig.RequestHeaders)
             {

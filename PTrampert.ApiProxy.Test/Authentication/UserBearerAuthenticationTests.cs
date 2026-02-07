@@ -15,8 +15,8 @@ namespace PTrampert.ApiProxy.Test.Authentication
     {
         private UserBearerAuthentication subject;
         private HttpContext httpContext;
-        public Mock<IHttpContextAccessor> httpAccessor;
-        public Mock<IAuthenticationService> authService;
+        private Mock<IHttpContextAccessor> httpAccessor;
+        private Mock<IAuthenticationService> authService;
 
         [SetUp]
         public void SetUp()

@@ -23,7 +23,7 @@ namespace PTrampert.ApiProxy.Authentication
         /// <summary>
         /// The token storage mode. Defaults to <see cref="TokenMode.AuthProps"/>.
         /// </summary>
-        public string Mode { get; set; } = TokenMode.AuthProps.ToString();
+        public string Mode { get; set; } = nameof(TokenMode.AuthProps);
 
         /// <summary>
         /// The TokenKey. Defaults to <value>"access_token"</value>.
@@ -33,7 +33,7 @@ namespace PTrampert.ApiProxy.Authentication
         /// <summary>
         /// The auth scheme for the token storage. Only used with <see cref="TokenMode.AuthProps"/>.
         /// </summary>
-        public string AuthScheme { get; set; } = null;
+        public string AuthScheme { get; set; }
 
         private readonly IHttpContextAccessor httpContext;
 
