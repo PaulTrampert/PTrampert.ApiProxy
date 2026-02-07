@@ -6,16 +6,11 @@ namespace PTrampert.ApiProxy.SampleApp.Api.Controllers
     [ApiController]
     public class AuthEchoController : ControllerBase
     {
-        public async Task<IActionResult> Get()
+        public Task<IActionResult> Get()
         {
-            if (Request.Headers.Authorization.Count > 0)
-            {
-                return Ok(Request.Headers.Authorization);
-            }
-            else
-            {
-                return NotFound();
-            }
+            return Request.Headers.Authorization.Count > 0 
+                ? Task.FromResult<IActionResult>(Ok(Request.Headers.Authorization)) 
+                : Task.FromResult<IActionResult>(NotFound());
         }
     }
 }

@@ -26,7 +26,7 @@ namespace PTrampert.ApiProxy.Test
         private Mock<HttpRequest> httpRequest;
         private Mock<WebSocketManager> webSockets;
         private Mock<HttpResponse> httpResponse;
-        private Mock<IHeaderDictionary> responseHeaders;
+        private HeaderDictionary responseHeaders;
 
         [SetUp]
         public void SetUp()
@@ -49,12 +49,11 @@ namespace PTrampert.ApiProxy.Test
                 .Returns(false);
             httpContext.SetupGet(c => c.WebSockets)
                 .Returns(webSockets.Object);
-            responseHeaders = new Mock<IHeaderDictionary>();
-            responseHeaders.SetupAllProperties();
+            responseHeaders = new HeaderDictionary();
             httpResponse = new Mock<HttpResponse>();
             httpResponse.SetupAllProperties();
             httpResponse.SetupGet(r => r.Headers)
-                .Returns(responseHeaders.Object);
+                .Returns(responseHeaders);
             httpContext.SetupGet(c => c.Response)
                 .Returns(httpResponse.Object);
             subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object, webSocketProxy.Object);
@@ -127,25 +126,28 @@ namespace PTrampert.ApiProxy.Test
 
             var result = await subject.Proxy("fake", "path");
 
-            Assert.That(subject.Response.StatusCode, Is.EqualTo((int)code));
-            if (body != null)
+            using (Assert.EnterMultipleScope())
             {
-                var fileStreamResult = result as FileStreamResult;
-                Assert.That(fileStreamResult.ContentType.StartsWith(contentType));
-                var content = await new StreamReader(fileStreamResult.FileStream).ReadToEndAsync();
-                Assert.That(content, Is.EqualTo(body));
-            }
-            else
-            {
-                Assert.That(result, Is.InstanceOf<EmptyResult>());
-            }
-
-            if (headers != null)
-            {
-                foreach (var pair in headers.Split('&'))
+                Assert.That(subject.Response.StatusCode, Is.EqualTo((int)code));
+                if (body != null)
                 {
-                    var kv = pair.Split('=');
-                    responseHeaders.Verify(h => h.Add(kv[0], kv[1]));
+                    var fileStreamResult = result as FileStreamResult;
+                    Assert.That(fileStreamResult.ContentType.StartsWith(contentType));
+                    var content = await new StreamReader(fileStreamResult.FileStream).ReadToEndAsync();
+                    Assert.That(content, Is.EqualTo(body));
+                }
+                else
+                {
+                    Assert.That(result, Is.InstanceOf<EmptyResult>());
+                }
+
+                if (headers != null)
+                {
+                    foreach (var pair in headers.Split('&'))
+                    {
+                        var kv = pair.Split('=');
+                        Assert.That(responseHeaders[kv[0]], Is.EqualTo(kv[1]));
+                    }
                 }
             }
         }

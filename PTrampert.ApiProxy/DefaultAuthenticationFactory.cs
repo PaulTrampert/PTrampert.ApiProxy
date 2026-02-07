@@ -38,7 +38,7 @@ namespace PTrampert.ApiProxy
 
             var authentication = (IAuthentication)ActivatorUtilities.CreateInstance(services, authType);
             var props = authType.GetProperties();
-            foreach (var prop in props.Where(p => p.SetMethod.IsPublic))
+            foreach (var prop in props.Where(p => p.SetMethod?.IsPublic ?? false))
             {
                 if (config.AuthProps.ContainsKey(prop.Name))
                 {

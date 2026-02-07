@@ -23,7 +23,7 @@ namespace PTrampert.ApiProxy.Test
             LastRequestAuthenticationHeader = request.Headers.Authorization;
             if (request.Content != null)
             {
-                LastRequestBody = await request.Content.ReadAsStringAsync();
+                LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
                 LastRequestMediaType = request.Content?.Headers.ContentType.MediaType;
             }
 
