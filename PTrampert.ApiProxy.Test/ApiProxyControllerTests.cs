@@ -173,6 +173,51 @@ namespace PTrampert.ApiProxy.Test
             }
         }
 
+        [TestCase("Mozilla/5.0 (Windows NT 10.0; Win64; x64")]
+        [TestCase("MyApp/1.0 [build 5]")]
+        public async Task ItProxiesRequestHeaderValuesThatWouldFailHeaderValidation(string userAgent)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "User-Agent"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["User-Agent"] = userAgent;
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestHeaders["User-Agent"], Is.EqualTo([userAgent]));
+        }
+
+        [Test]
+        public void ItThrowsProxyExceptionWhenAConfiguredRequestHeaderCannotBeForwarded()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "Content-Type"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["Content-Type"] = "text/plain";
+
+            // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
+            // of ThrowsAsync are otherwise ambiguous.
+            var exception = Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.InternalServerError));
+                Assert.That(exception?.Message, Does.Contain("Content-Type"));
+            }
+        }
+
         [Test]
         public async Task ItDoesNotProxyRequestHeadersThatAreNotConfigured()
         {
@@ -344,9 +389,9 @@ namespace PTrampert.ApiProxy.Test
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
                 .Returns(true);
 
-            // The delegate is cast explicitly because the AsyncTestDelegate and Func<Task> overloads
-            // of ThrowsAsync are otherwise ambiguous when building for net8.0.
-            var exception = Assert.ThrowsAsync<ProxyException>((AsyncTestDelegate)(() => subject.Proxy("fake", "some/path")));
+            // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
+            // of ThrowsAsync are otherwise ambiguous.
+            var exception = Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
