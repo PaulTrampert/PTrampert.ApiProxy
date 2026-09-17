@@ -35,6 +35,10 @@ Key types in the library:
   properties from `ApiConfig.AuthProps`.
 - `BasicAuthentication`, `UserBearerAuthentication` — the two built-in `IAuthentication` implementations.
 - `IWebSocketProxy` / `WebSocketProxy` — bidirectional WebSocket pumping.
+- `ApiProxyConfigValidator` — an `IValidateOptions<ApiProxyConfig>`, validated on start, that rejects
+  reserved headers (content headers, and — for an api that configures an `AuthType` — `Authorization` on
+  requests) in an api's `RequestHeaders` / `ResponseHeaders`. The reserved names are documented in
+  `README.md`.
 
 ## Build and test
 
@@ -83,6 +87,11 @@ Only headers named in `ApiConfig.RequestHeaders` / `ResponseHeaders` are forward
 the configured list is case-insensitive, but the header is forwarded **using the spelling the client
 sent**, because an upstream API may not treat header names case-insensitively whatever the spec says.
 Preserve that behaviour when touching `ApiProxyController.MakeRequest`.
+
+Headers the proxy handles itself cannot be forwarded at all, and `ApiProxyConfigValidator` rejects
+them at startup rather than letting a request fail. Adding a name to that reserved list is a
+behaviour change for consumers whose configuration already lists it, so it needs a `README.md` update
+too.
 
 ## Test conventions
 
