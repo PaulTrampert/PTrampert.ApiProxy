@@ -199,8 +199,7 @@ namespace PTrampert.ApiProxy.Test
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
                 .Returns(true);
 
-            Func<Task> action = () => subject.Proxy("fake", "some/path");
-            var exception = Assert.ThrowsAsync<ProxyException>(action);
+            var exception = Assert.ThrowsAsync<ProxyException>(() => subject.Proxy("fake", "some/path"));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
