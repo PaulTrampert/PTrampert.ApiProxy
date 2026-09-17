@@ -221,6 +221,31 @@ namespace PTrampert.ApiProxy.Test
             }
         }
 
+        [Test]
+        public async Task ItProxiesResponseHeaderNamesExactlyAsTheyWereGiven()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "herp-derp"
+                }
+            });
+            subject.Request.Method = "GET";
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.NoContent);
+            messageHandler.NextResponse.Headers.Add("HeRp-DeRp", "derp");
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(responseHeaders.Keys, Does.Contain("HeRp-DeRp"));
+                Assert.That(responseHeaders.Keys, Does.Not.Contain("herp-derp"));
+                Assert.That(responseHeaders["HeRp-DeRp"], Is.EqualTo(new StringValues("derp")));
+            }
+        }
+
         [TestCase(HttpStatusCode.OK, "somebody", "text/plain", "herp=derp&bloop=floop")]
         [TestCase(HttpStatusCode.InternalServerError, "somebody", "text/plain", "herp=derp&bloop=floop")]
         [TestCase(HttpStatusCode.NoContent, null, null, null)]

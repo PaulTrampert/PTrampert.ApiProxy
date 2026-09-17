@@ -67,11 +67,14 @@ namespace PTrampert.ApiProxy
             var response = await MakeRequest(apiConfig, path);
             
             Response.StatusCode = (int) response.StatusCode;
-            foreach (var responseHeaderKey in apiConfig.ResponseHeaders)
+            // As with request headers, names are matched case insensitively but passed back exactly as
+            // the upstream API spelled them.
+            var configuredResponseHeaders = new HashSet<string>(apiConfig.ResponseHeaders, StringComparer.OrdinalIgnoreCase);
+            foreach (var (upstreamHeaderKey, upstreamHeaderValues) in response.Headers)
             {
-                if (response.Headers.Contains(responseHeaderKey))
+                if (configuredResponseHeaders.Contains(upstreamHeaderKey))
                 {
-                    Response.Headers.Append(responseHeaderKey, new StringValues(response.Headers.GetValues(responseHeaderKey).ToArray()));
+                    Response.Headers.Append(upstreamHeaderKey, new StringValues(upstreamHeaderValues.ToArray()));
                 }
             }
 
