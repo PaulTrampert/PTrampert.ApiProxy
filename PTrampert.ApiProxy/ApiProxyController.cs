@@ -97,8 +97,20 @@ namespace PTrampert.ApiProxy
             var configuredRequestHeaders = new HashSet<string>(apiConfig.RequestHeaders, StringComparer.OrdinalIgnoreCase);
             foreach (var (incomingHeaderKey, incomingHeaderValues) in Request.Headers)
             {
-                if (configuredRequestHeaders.Contains(incomingHeaderKey))
-                    upstreamRequest.Headers.Add(incomingHeaderKey, [.. incomingHeaderValues]);
+                if (!configuredRequestHeaders.Contains(incomingHeaderKey)) continue;
+                // Values are added without validation so that the upstream API receives the bytes the client
+                // sent. Headers.Add() would parse strongly typed headers and throw a FormatException on a value
+                // it cannot parse (an unbalanced parenthesis in a User-Agent, say), failing the whole request
+                // over a header a proxy has no business reinterpreting.
+                if (!upstreamRequest.Headers.TryAddWithoutValidation(incomingHeaderKey, (IEnumerable<string>)[.. incomingHeaderValues]))
+                {
+                    // The only remaining reason to be rejected is a misused header name: a content header
+                    // configured in RequestHeaders, which belongs to Content.Headers and can never be forwarded
+                    // here. That is a configuration error, so say which header caused it.
+                    throw new ProxyException(
+                        $"Header '{incomingHeaderKey}' cannot be forwarded as a request header. Remove it from the api's RequestHeaders.",
+                        (int)HttpStatusCode.InternalServerError);
+                }
             }
 
             if ((Request.ContentLength ?? 0) > 0)
