@@ -389,9 +389,9 @@ namespace PTrampert.ApiProxy.Test
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
                 .Returns(true);
 
-            // The delegate is cast explicitly because the AsyncTestDelegate and Func<Task> overloads
-            // of ThrowsAsync are otherwise ambiguous when building for net8.0.
-            var exception = Assert.ThrowsAsync<ProxyException>((AsyncTestDelegate)(() => subject.Proxy("fake", "some/path")));
+            // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
+            // of ThrowsAsync are otherwise ambiguous.
+            var exception = Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
