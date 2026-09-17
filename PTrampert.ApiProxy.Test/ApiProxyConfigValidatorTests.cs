@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net.Http;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
 
@@ -160,6 +161,55 @@ namespace PTrampert.ApiProxy.Test
                 Assert.That(result.FailureMessage, Does.Contain("fake").And.Contain("Content-Type"));
                 Assert.That(result.FailureMessage, Does.Contain("other").And.Contain("Content-Length"));
             }
+        }
+
+        // The reserved content headers are not a hand-written guess: they are the set System.Net.Http keeps on
+        // HttpContent.Headers. This pins the list to what HttpClient actually does, so a name that stops (or
+        // starts) being refused on a request message shows up here rather than in production.
+        [TestCase("Allow")]
+        [TestCase("Content-Disposition")]
+        [TestCase("Content-Encoding")]
+        [TestCase("Content-Language")]
+        [TestCase("Content-Length")]
+        [TestCase("Content-Location")]
+        [TestCase("Content-MD5")]
+        [TestCase("Content-Range")]
+        [TestCase("Content-Type")]
+        [TestCase("Expires")]
+        [TestCase("Last-Modified")]
+        [TestCase("User-Agent")]
+        [TestCase("Accept")]
+        [TestCase("Authorization")]
+        [TestCase("Cache-Control")]
+        [TestCase("ETag")]
+        [TestCase("Link")]
+        [TestCase("Location")]
+        [TestCase("Retry-After")]
+        [TestCase("Set-Cookie")]
+        [TestCase("Vary")]
+        [TestCase("Age")]
+        [TestCase("Date")]
+        [TestCase("Warning")]
+        [TestCase("Content-Security-Policy")]
+        [TestCase("Access-Control-Allow-Origin")]
+        [TestCase("X-Custom")]
+        public void ItReservesARequestHeaderExactlyWhenAnUpstreamRequestCannotCarryIt(string header)
+        {
+            using var upstreamRequest = new HttpRequestMessage(HttpMethod.Post, "https://example.com/")
+            {
+                Content = new StringContent("body")
+            };
+            var upstreamRequestCanCarryIt = upstreamRequest.Headers.TryAddWithoutValidation(header, "probe-value");
+
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string> { header }
+            });
+
+            var result = subject.Validate(null, config);
+
+            Assert.That(result.Succeeded, Is.EqualTo(upstreamRequestCanCarryIt));
         }
 
         [Test]

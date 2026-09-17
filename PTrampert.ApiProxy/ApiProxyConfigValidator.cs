@@ -6,17 +6,26 @@ using Microsoft.Extensions.Options;
 namespace PTrampert.ApiProxy;
 
 /// <summary>
-/// Validates a bound <see cref="ApiProxyConfig"/>, rejecting request and response headers that the proxy
-/// handles itself and therefore cannot forward.
+/// Validates a bound <see cref="ApiProxyConfig"/>, rejecting request and response headers the proxy cannot
+/// forward: content headers, which <c>System.Net.Http</c> keeps on the message's content rather than on the
+/// message, and <c>Authorization</c> for an api whose configured authentication sets it.
 /// </summary>
 internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
 {
     /// <summary>
-    /// Headers that live on <c>HttpContent.Headers</c> rather than on the message itself, as
-    /// <c>System.Net.Http</c> divides them up. Adding one of these to <c>HttpRequestMessage.Headers</c> is a
-    /// "misused header name", and none of them ever appear in <c>HttpResponseMessage.Headers</c> either, so
-    /// configuring one is never what the caller meant.
+    /// The headers <c>System.Net.Http</c> keeps on <c>HttpContent.Headers</c> rather than on the message
+    /// itself; this is exactly the set <c>HttpContentHeaders</c> exposes. Neither direction of the proxy can
+    /// carry one: <c>HttpRequestMessage.Headers.TryAddWithoutValidation</c> refuses them all as a "misused
+    /// header name", so a configured request header fails every request to the api, and an upstream response
+    /// puts them on <c>response.Content.Headers</c>, which the proxy never enumerates, so a configured
+    /// response header silently forwards nothing.
     /// </summary>
+    /// <remarks>
+    /// Being reserved does not mean the proxy preserves them some other way. Apart from <c>Content-Type</c>,
+    /// which is carried by the returned <c>FileResult</c>, these headers are dropped rather than forwarded.
+    /// Teaching the proxy to forward them from <c>Content.Headers</c> is tracked in issue #240; until then,
+    /// configuring one promises something the proxy does not do.
+    /// </remarks>
     private static readonly HashSet<string> ContentHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         "Allow",
@@ -56,7 +65,7 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
             {
                 if (ContentHeaders.Contains(header))
                 {
-                    failures.Add($"Api '{apiName}' configures reserved request header '{header}'. Content headers describe the request body, which the proxy forwards from the incoming request, so the header cannot be proxied individually. Remove it from RequestHeaders.");
+                    failures.Add($"Api '{apiName}' configures reserved request header '{header}'. It is a content header, which belongs to the request's content rather than the request itself, so it cannot be added to the upstream request and would fail every request to this api. Remove it from RequestHeaders.");
                 }
                 else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase) && apiConfig.AuthType != null)
                 {
@@ -66,7 +75,7 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
 
             foreach (var header in (apiConfig.ResponseHeaders ?? Enumerable.Empty<string>()).Where(ContentHeaders.Contains))
             {
-                failures.Add($"Api '{apiName}' configures reserved response header '{header}'. Content headers describe the response body, which the proxy forwards from the upstream response, so the header cannot be proxied individually. Remove it from ResponseHeaders.");
+                failures.Add($"Api '{apiName}' configures reserved response header '{header}'. It is a content header, which arrives on the upstream response's content rather than on the response itself, where the proxy does not look, so configuring it forwards nothing. Remove it from ResponseHeaders.");
             }
         }
 
