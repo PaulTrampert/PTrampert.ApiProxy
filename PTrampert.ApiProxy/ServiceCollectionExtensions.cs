@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using PTrampert.ApiProxy;
 
 // ReSharper disable once CheckNamespace
@@ -38,6 +39,10 @@ namespace Microsoft.Extensions.DependencyInjection
 
         private static IServiceCollection Common(IServiceCollection services)
         {
+            // Registered as an enumerable so that a consumer's own IValidateOptions<ApiProxyConfig> is kept too,
+            // and validated on start so that a reserved header surfaces before any traffic reaches the proxy.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ApiProxyConfig>, ApiProxyConfigValidator>());
+            services.AddOptions<ApiProxyConfig>().ValidateOnStart();
             services.AddControllers();
             services.AddScoped<IWebSocketProxy, WebSocketProxy>();
             services.TryAddScoped<IAuthenticationFactory, DefaultAuthenticationFactory>();

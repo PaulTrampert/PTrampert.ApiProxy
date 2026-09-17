@@ -93,5 +93,16 @@ services.AddApiProxy(cfg =>
 The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
 
+## Reserved Headers
+
+`RequestHeaders` and `ResponseHeaders` name the headers the proxy passes through. A few headers are
+handled by the proxy itself and cannot be listed there. Configuring one of them fails validation when
+the app starts, with a message naming the api and the header, instead of failing later on a request.
+
+| Header | Why it is reserved |
+| --- | --- |
+| `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`, `Content-Length`, `Content-Location`, `Content-MD5`, `Content-Range`, `Content-Type`, `Expires`, `Last-Modified` | These describe the message body. The proxy forwards the body, and its content type, from the incoming request and from the upstream response, so they cannot be proxied individually. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
+| `Authorization` | Set from the api's configured `AuthType`. Reserved in `RequestHeaders`. |
+
 #### Running the Sample App
 A small sample app is included in this project. To run it, simply run `docker compose up`.
