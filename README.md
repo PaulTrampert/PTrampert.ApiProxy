@@ -102,7 +102,7 @@ the app starts, with a message naming the api and the header, instead of failing
 | Header | Why it is reserved |
 | --- | --- |
 | `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`, `Content-Length`, `Content-Location`, `Content-MD5`, `Content-Range`, `Content-Type`, `Expires`, `Last-Modified` | These describe the message body. The proxy forwards the body, and its content type, from the incoming request and from the upstream response, so they cannot be proxied individually. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
-| `Authorization` | Set from the api's configured `AuthType`. Reserved in `RequestHeaders`. |
+| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may list the header to pass the client's through. |
 
 #### Running the Sample App
 A small sample app is included in this project. To run it, simply run `docker compose up`.

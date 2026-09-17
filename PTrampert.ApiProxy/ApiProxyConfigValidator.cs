@@ -35,6 +35,12 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
     /// <summary>
     /// Validate a bound <see cref="ApiProxyConfig"/>.
     /// </summary>
+    /// <remarks>
+    /// <c>Authorization</c> is only reserved for an api that configures an <c>AuthType</c>, matching
+    /// <see cref="DefaultAuthenticationFactory.BuildAuthentication"/>, which builds no authentication when
+    /// <see cref="ApiConfig.AuthType"/> is null. An api without one may forward the client's Authorization
+    /// header, so rejecting that configuration would break working setups.
+    /// </remarks>
     /// <param name="name">The name of the options instance being validated.</param>
     /// <param name="options">The <see cref="ApiProxyConfig"/> to validate.</param>
     /// <returns>
@@ -52,9 +58,9 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
                 {
                     failures.Add($"Api '{apiName}' configures reserved request header '{header}'. Content headers describe the request body, which the proxy forwards from the incoming request, so the header cannot be proxied individually. Remove it from RequestHeaders.");
                 }
-                else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase) && apiConfig.AuthType != null)
                 {
-                    failures.Add($"Api '{apiName}' configures reserved request header '{header}'. The Authorization header is set from the configured AuthType. Remove it from RequestHeaders.");
+                    failures.Add($"Api '{apiName}' configures reserved request header '{header}', but also configures AuthType '{apiConfig.AuthType}', which sets that header. The configured authentication wins, so the forwarded header would be discarded. Remove it from RequestHeaders.");
                 }
             }
 

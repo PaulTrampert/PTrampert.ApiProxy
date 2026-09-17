@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using PTrampert.ApiProxy.Authentication;
 
 namespace PTrampert.ApiProxy.Test
 {
@@ -68,7 +69,29 @@ namespace PTrampert.ApiProxy.Test
 
         [TestCase("Authorization")]
         [TestCase("authorization")]
-        public void ItFailsWhenAuthorizationIsConfiguredAsARequestHeader(string header)
+        public void ItFailsWhenAuthorizationIsConfiguredAsARequestHeaderAlongsideAnAuthType(string header)
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                AuthType = typeof(BasicAuthentication).AssemblyQualifiedName,
+                RequestHeaders = new List<string> { header }
+            });
+
+            var result = subject.Validate(null, config);
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Failed, Is.True);
+                Assert.That(result.FailureMessage, Does.Contain(header).And.Contain("fake").And.Contain("AuthType"));
+            }
+        }
+
+        // Without an AuthType the proxy sets no Authorization header of its own, so an api can legitimately
+        // forward the client's. Reserving the header unconditionally would break those configurations.
+        [TestCase("Authorization")]
+        [TestCase("authorization")]
+        public void ItSucceedsWhenAuthorizationIsConfiguredAsARequestHeaderWithoutAnAuthType(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -78,11 +101,7 @@ namespace PTrampert.ApiProxy.Test
 
             var result = subject.Validate(null, config);
 
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(result.Failed, Is.True);
-                Assert.That(result.FailureMessage, Does.Contain(header).And.Contain("AuthType"));
-            }
+            Assert.That(result.Succeeded, Is.True);
         }
 
         [TestCase("Content-Type")]
