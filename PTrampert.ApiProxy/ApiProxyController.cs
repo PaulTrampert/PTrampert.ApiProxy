@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -88,10 +89,13 @@ namespace PTrampert.ApiProxy
             // Request.Body *can* be null (e.g. GET requests), so we need to use Stream.Null in that case.
             // ReSharper disable once ConstantNullCoalescingCondition
             using var content = new StreamContent(Request.Body ?? Stream.Null);
-            foreach (var requestHeaderKey in apiConfig.RequestHeaders)
+            // Header names are matched case insensitively, but forwarded exactly as the client spelled them:
+            // the upstream API may not treat them case insensitively, whatever the spec says.
+            var configuredRequestHeaders = new HashSet<string>(apiConfig.RequestHeaders, StringComparer.OrdinalIgnoreCase);
+            foreach (var (incomingHeaderKey, incomingHeaderValues) in Request.Headers)
             {
-                if (Request.Headers.TryGetValue(requestHeaderKey, out var incomingHeader))
-                    upstreamRequest.Headers.Add(requestHeaderKey, [.. incomingHeader]);
+                if (configuredRequestHeaders.Contains(incomingHeaderKey))
+                    upstreamRequest.Headers.Add(incomingHeaderKey, [.. incomingHeaderValues]);
             }
 
             if ((Request.ContentLength ?? 0) > 0)

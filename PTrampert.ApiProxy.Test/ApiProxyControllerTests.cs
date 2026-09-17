@@ -151,6 +151,29 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
+        public async Task ItProxiesRequestHeaderNamesExactlyAsTheyWereGiven()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp-derp"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["HeRp-DeRp"] = "derp";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders["HeRp-DeRp"], Is.EqualTo(["derp"]));
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("herp-derp"), Is.False);
+            }
+        }
+
+        [Test]
         public async Task ItDoesNotProxyRequestHeadersThatAreNotConfigured()
         {
             proxyConfig.Add("fake", new ApiConfig
