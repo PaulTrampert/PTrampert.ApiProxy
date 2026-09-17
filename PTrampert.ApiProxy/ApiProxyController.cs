@@ -83,32 +83,32 @@ namespace PTrampert.ApiProxy
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
         {
-            using var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
+            using var upstreamRequest = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
             
             // Request.Body *can* be null (e.g. GET requests), so we need to use Stream.Null in that case.
             // ReSharper disable once ConstantNullCoalescingCondition
             using var content = new StreamContent(Request.Body ?? Stream.Null);
             foreach (var requestHeaderKey in apiConfig.RequestHeaders)
             {
-                if (Request.Headers.ContainsKey(requestHeaderKey))
-                    request.Headers.Add(requestHeaderKey, request.Headers.GetValues(requestHeaderKey));
+                if (Request.Headers.TryGetValue(requestHeaderKey, out var incomingHeader))
+                    upstreamRequest.Headers.Add(requestHeaderKey, [.. incomingHeader]);
             }
 
             if ((Request.ContentLength ?? 0) > 0)
             {
-                request.Content = content;
-                request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
-                    request.Content.Headers.ContentType
+                upstreamRequest.Content = content;
+                upstreamRequest.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
+                    upstreamRequest.Content.Headers.ContentType
                     : new MediaTypeHeaderValue(Request.ContentType);
             }
 
             var auth = authFactory.BuildAuthentication(apiConfig);
             if (auth != null)
             {
-                request.Headers.Authorization = await auth.GetAuthenticationHeader();
+                upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
-            return await httpClient.SendAsync(request);
+            return await httpClient.SendAsync(upstreamRequest);
         }
     }
 }
