@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using Moq;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Exceptions;
@@ -26,6 +27,7 @@ namespace PTrampert.ApiProxy.Test
         private Mock<HttpRequest> httpRequest;
         private Mock<WebSocketManager> webSockets;
         private Mock<HttpResponse> httpResponse;
+        private HeaderDictionary requestHeaders;
         private HeaderDictionary responseHeaders;
 
         [SetUp]
@@ -42,6 +44,9 @@ namespace PTrampert.ApiProxy.Test
             httpContext = new Mock<HttpContext>();
             httpRequest = new Mock<HttpRequest>();
             httpRequest.SetupAllProperties();
+            requestHeaders = new HeaderDictionary();
+            httpRequest.SetupGet(r => r.Headers)
+                .Returns(requestHeaders);
             httpContext.SetupGet(c => c.Request)
                 .Returns(httpRequest.Object);
             webSockets = new Mock<WebSocketManager>();
@@ -99,6 +104,146 @@ namespace PTrampert.ApiProxy.Test
             Assert.That(messageHandler.LastRequestUrl, Is.EqualTo($"https://example.com/{path}{query}"));
             Assert.That(messageHandler.LastRequestBody, Is.EqualTo(body));
             Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo(contentType));
+        }
+
+        [Test]
+        public async Task ItProxiesConfiguredRequestHeadersFromTheIncomingRequest()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp",
+                    "bloop"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["herp"] = "derp";
+            requestHeaders["bloop"] = "floop";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders["herp"], Is.EqualTo(["derp"]));
+                Assert.That(messageHandler.LastRequestHeaders["bloop"], Is.EqualTo(["floop"]));
+            }
+        }
+
+        [Test]
+        public async Task ItProxiesEveryValueOfAMultiValuedRequestHeader()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["herp"] = new StringValues(["derp", "flerp"]);
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestHeaders["herp"], Is.EqualTo(["derp", "flerp"]));
+        }
+
+        [Test]
+        public async Task ItProxiesRequestHeaderNamesExactlyAsTheyWereGiven()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp-derp"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["HeRp-DeRp"] = "derp";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders["HeRp-DeRp"], Is.EqualTo(["derp"]));
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("herp-derp"), Is.False);
+            }
+        }
+
+        [Test]
+        public async Task ItDoesNotProxyRequestHeadersThatAreNotConfigured()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["herp"] = "derp";
+            requestHeaders["bloop"] = "floop";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("herp"), Is.True);
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("bloop"), Is.False);
+            }
+        }
+
+        [Test]
+        public async Task ItSkipsConfiguredRequestHeadersMissingFromTheIncomingRequest()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "herp",
+                    "bloop"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["herp"] = "derp";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders["herp"], Is.EqualTo(["derp"]));
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("bloop"), Is.False);
+            }
+        }
+
+        [Test]
+        public async Task ItProxiesResponseHeaderNamesExactlyAsTheyWereGiven()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "herp-derp"
+                }
+            });
+            subject.Request.Method = "GET";
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.NoContent);
+            messageHandler.NextResponse.Headers.Add("HeRp-DeRp", "derp");
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(responseHeaders.Keys, Does.Contain("HeRp-DeRp"));
+                Assert.That(responseHeaders.Keys, Does.Not.Contain("herp-derp"));
+                Assert.That(responseHeaders["HeRp-DeRp"], Is.EqualTo(new StringValues("derp")));
+            }
         }
 
         [TestCase(HttpStatusCode.OK, "somebody", "text/plain", "herp=derp&bloop=floop")]
@@ -199,8 +344,9 @@ namespace PTrampert.ApiProxy.Test
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
                 .Returns(true);
 
-            Func<Task> action = () => subject.Proxy("fake", "some/path");
-            var exception = Assert.ThrowsAsync<ProxyException>(action);
+            // The delegate is cast explicitly because the AsyncTestDelegate and Func<Task> overloads
+            // of ThrowsAsync are otherwise ambiguous when building for net8.0.
+            var exception = Assert.ThrowsAsync<ProxyException>((AsyncTestDelegate)(() => subject.Proxy("fake", "some/path")));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -66,11 +67,14 @@ namespace PTrampert.ApiProxy
             var response = await MakeRequest(apiConfig, path);
             
             Response.StatusCode = (int) response.StatusCode;
-            foreach (var responseHeaderKey in apiConfig.ResponseHeaders)
+            // As with request headers, names are matched case insensitively but passed back exactly as
+            // the upstream API spelled them.
+            var configuredResponseHeaders = new HashSet<string>(apiConfig.ResponseHeaders, StringComparer.OrdinalIgnoreCase);
+            foreach (var (upstreamHeaderKey, upstreamHeaderValues) in response.Headers)
             {
-                if (response.Headers.Contains(responseHeaderKey))
+                if (configuredResponseHeaders.Contains(upstreamHeaderKey))
                 {
-                    Response.Headers.Append(responseHeaderKey, new StringValues(response.Headers.GetValues(responseHeaderKey).ToArray()));
+                    Response.Headers.Append(upstreamHeaderKey, new StringValues(upstreamHeaderValues.ToArray()));
                 }
             }
 
@@ -83,32 +87,35 @@ namespace PTrampert.ApiProxy
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
         {
-            using var request = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
+            using var upstreamRequest = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
             
             // Request.Body *can* be null (e.g. GET requests), so we need to use Stream.Null in that case.
             // ReSharper disable once ConstantNullCoalescingCondition
             using var content = new StreamContent(Request.Body ?? Stream.Null);
-            foreach (var requestHeaderKey in apiConfig.RequestHeaders)
+            // Header names are matched case insensitively, but forwarded exactly as the client spelled them:
+            // the upstream API may not treat them case insensitively, whatever the spec says.
+            var configuredRequestHeaders = new HashSet<string>(apiConfig.RequestHeaders, StringComparer.OrdinalIgnoreCase);
+            foreach (var (incomingHeaderKey, incomingHeaderValues) in Request.Headers)
             {
-                if (Request.Headers.ContainsKey(requestHeaderKey))
-                    request.Headers.Add(requestHeaderKey, request.Headers.GetValues(requestHeaderKey));
+                if (configuredRequestHeaders.Contains(incomingHeaderKey))
+                    upstreamRequest.Headers.Add(incomingHeaderKey, [.. incomingHeaderValues]);
             }
 
             if ((Request.ContentLength ?? 0) > 0)
             {
-                request.Content = content;
-                request.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
-                    request.Content.Headers.ContentType
+                upstreamRequest.Content = content;
+                upstreamRequest.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
+                    upstreamRequest.Content.Headers.ContentType
                     : new MediaTypeHeaderValue(Request.ContentType);
             }
 
             var auth = authFactory.BuildAuthentication(apiConfig);
             if (auth != null)
             {
-                request.Headers.Authorization = await auth.GetAuthenticationHeader();
+                upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
-            return await httpClient.SendAsync(request);
+            return await httpClient.SendAsync(upstreamRequest);
         }
     }
 }
