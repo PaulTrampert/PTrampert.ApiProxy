@@ -127,7 +127,9 @@ namespace PTrampert.ApiProxy
                 upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
-            return await httpClient.SendAsync(upstreamRequest);
+            // If the client disconnects, stop waiting on the upstream API too. The resulting
+            // OperationCanceledException is left to propagate: ASP.NET Core recognises it as a client abort.
+            return await httpClient.SendAsync(upstreamRequest, HttpContext.RequestAborted);
         }
     }
 }
