@@ -1,8 +1,5 @@
-using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using Microsoft.Extensions.Logging;
-using Moq;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
 
@@ -12,13 +9,11 @@ namespace PTrampert.ApiProxy.Test
     {
         private ApiProxyConfigValidator subject;
         private ApiProxyConfig config;
-        private Mock<ILogger<ApiProxyConfigValidator>> logger;
 
         [SetUp]
         public void SetUp()
         {
-            logger = new Mock<ILogger<ApiProxyConfigValidator>>();
-            subject = new ApiProxyConfigValidator(logger.Object);
+            subject = new ApiProxyConfigValidator();
             config = new ApiProxyConfig();
         }
 
@@ -52,11 +47,7 @@ namespace PTrampert.ApiProxy.Test
 
         [TestCase("Content-Type")]
         [TestCase("content-length")]
-        [TestCase("Content-Disposition")]
-        [TestCase("Allow")]
-        [TestCase("EXPIRES")]
-        [TestCase("Last-Modified")]
-        public void ItFailsWhenAContentHeaderIsConfiguredAsARequestHeader(string header)
+        public void ItFailsWhenAProxyOwnedContentHeaderIsConfiguredAsARequestHeader(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -93,11 +84,11 @@ namespace PTrampert.ApiProxy.Test
             }
         }
 
-        // Without an AuthType the proxy sets no Authorization header of its own, so an api can legitimately
-        // forward the client's. Reserving the header unconditionally would break those configurations.
+        // Forwarding the client's Authorization is expressed with PassthroughAuthentication, not by listing the
+        // header, so the failure has to tell the consumer exactly what to set AuthType to.
         [TestCase("Authorization")]
         [TestCase("authorization")]
-        public void ItSucceedsWhenAuthorizationIsConfiguredAsARequestHeaderWithoutAnAuthType(string header)
+        public void ItFailsWhenAuthorizationIsConfiguredAsARequestHeaderWithoutAnAuthType(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -107,75 +98,17 @@ namespace PTrampert.ApiProxy.Test
 
             var result = subject.Validate(null, config);
 
-            Assert.That(result.Succeeded, Is.True);
-        }
-
-        // The implicit passthrough keeps working, but is deprecated in favour of PassthroughAuthentication.
-        // IValidateOptions has no warning channel, so the deprecation is logged rather than returned.
-        [TestCase("Authorization")]
-        [TestCase("authorization")]
-        public void ItLogsADeprecationWarningWhenAuthorizationIsConfiguredAsARequestHeaderWithoutAnAuthType(string header)
-        {
-            config.Add("fake", new ApiConfig
+            using (Assert.EnterMultipleScope())
             {
-                BaseUrl = "https://example.com",
-                RequestHeaders = new List<string> { header }
-            });
-
-            subject.Validate(null, config);
-
-            logger.Verify(l => l.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((state, _) => state.ToString().Contains("fake") && state.ToString().Contains(header) && state.ToString().Contains("PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy")),
-                null,
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Once);
-        }
-
-        [Test]
-        public void ItLogsNoWarningWhenAuthorizationIsNotConfiguredAsARequestHeader()
-        {
-            config.Add("fake", new ApiConfig
-            {
-                BaseUrl = "https://example.com",
-                RequestHeaders = new List<string> { "X-Some-Header" },
-                ResponseHeaders = new List<string> { "Authorization" }
-            });
-
-            subject.Validate(null, config);
-
-            logger.Verify(l => l.Log(
-                It.IsAny<LogLevel>(),
-                It.IsAny<EventId>(),
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Never);
-        }
-
-        [Test]
-        public void ItLogsNoWarningWhenAuthorizationIsRejectedAlongsideAnAuthType()
-        {
-            config.Add("fake", new ApiConfig
-            {
-                BaseUrl = "https://example.com",
-                AuthType = typeof(BasicAuthentication).AssemblyQualifiedName,
-                RequestHeaders = new List<string> { "Authorization" }
-            });
-
-            subject.Validate(null, config);
-
-            logger.Verify(l => l.Log(
-                It.IsAny<LogLevel>(),
-                It.IsAny<EventId>(),
-                It.IsAny<It.IsAnyType>(),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Never);
+                Assert.That(result.Failed, Is.True);
+                Assert.That(result.FailureMessage, Does.Contain(header).And.Contain("fake").And.Contain("RequestHeaders"));
+                Assert.That(result.FailureMessage, Does.Contain("AuthType").And.Contain("PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy"));
+            }
         }
 
         [TestCase("Content-Type")]
         [TestCase("content-length")]
-        [TestCase("Last-Modified")]
-        public void ItFailsWhenAContentHeaderIsConfiguredAsAResponseHeader(string header)
+        public void ItFailsWhenAProxyOwnedContentHeaderIsConfiguredAsAResponseHeader(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -230,23 +163,45 @@ namespace PTrampert.ApiProxy.Test
             }
         }
 
-        // The reserved content headers are not a hand-written guess: they are the set System.Net.Http keeps on
-        // HttpContent.Headers. This pins the list to what HttpClient actually does, so a name that stops (or
-        // starts) being refused on a request message shows up here rather than in production.
+        // Content headers other than Content-Length and Content-Type are forwarded on the message's content,
+        // so configuring them is valid in either direction.
         [TestCase("Allow")]
         [TestCase("Content-Disposition")]
         [TestCase("Content-Encoding")]
         [TestCase("Content-Language")]
-        [TestCase("Content-Length")]
         [TestCase("Content-Location")]
         [TestCase("Content-MD5")]
         [TestCase("Content-Range")]
-        [TestCase("Content-Type")]
+        [TestCase("EXPIRES")]
+        [TestCase("Last-Modified")]
+        public void ItSucceedsWhenAForwardableContentHeaderIsConfigured(string header)
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string> { header },
+                ResponseHeaders = new List<string> { header }
+            });
+
+            var result = subject.Validate(null, config);
+
+            Assert.That(result.Succeeded, Is.True);
+        }
+
+        // Every header the validator lets through must have somewhere to go on an upstream request: the
+        // message's own headers or, for a content header, its content's. This pins that to what HttpClient
+        // actually does, so a name neither accepts shows up here rather than in production.
+        [TestCase("Allow")]
+        [TestCase("Content-Disposition")]
+        [TestCase("Content-Encoding")]
+        [TestCase("Content-Language")]
+        [TestCase("Content-Location")]
+        [TestCase("Content-MD5")]
+        [TestCase("Content-Range")]
         [TestCase("Expires")]
         [TestCase("Last-Modified")]
         [TestCase("User-Agent")]
         [TestCase("Accept")]
-        [TestCase("Authorization")]
         [TestCase("Cache-Control")]
         [TestCase("ETag")]
         [TestCase("Link")]
@@ -260,13 +215,14 @@ namespace PTrampert.ApiProxy.Test
         [TestCase("Content-Security-Policy")]
         [TestCase("Access-Control-Allow-Origin")]
         [TestCase("X-Custom")]
-        public void ItReservesARequestHeaderExactlyWhenAnUpstreamRequestCannotCarryIt(string header)
+        public void ItOnlyAcceptsRequestHeadersAnUpstreamRequestCanCarry(string header)
         {
             using var upstreamRequest = new HttpRequestMessage(HttpMethod.Post, "https://example.com/")
             {
                 Content = new StringContent("body")
             };
-            var upstreamRequestCanCarryIt = upstreamRequest.Headers.TryAddWithoutValidation(header, "probe-value");
+            var upstreamRequestCanCarryIt = upstreamRequest.Headers.TryAddWithoutValidation(header, "probe-value")
+                || upstreamRequest.Content.Headers.TryAddWithoutValidation(header, "probe-value");
 
             config.Add("fake", new ApiConfig
             {
@@ -276,7 +232,11 @@ namespace PTrampert.ApiProxy.Test
 
             var result = subject.Validate(null, config);
 
-            Assert.That(result.Succeeded, Is.EqualTo(upstreamRequestCanCarryIt));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Succeeded, Is.True);
+                Assert.That(upstreamRequestCanCarryIt, Is.True);
+            }
         }
 
         [Test]

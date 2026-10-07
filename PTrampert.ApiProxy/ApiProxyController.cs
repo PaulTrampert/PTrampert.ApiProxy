@@ -27,6 +27,15 @@ namespace PTrampert.ApiProxy
         private readonly IWebSocketProxy webSocketProxy;
 
         /// <summary>
+        /// Content headers the proxy sets itself, from the body it forwards, and so never copies from the other side.
+        /// </summary>
+        internal static readonly IReadOnlySet<string> ProxyOwnedContentHeaders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Content-Length",
+            "Content-Type"
+        };
+
+        /// <summary>
         /// Constructor for <see cref="ApiProxyController"/>
         /// </summary>
         /// <param name="httpClient">The <see cref="HttpClient"/> used to make requests to downstream API's.</param>
@@ -83,8 +92,18 @@ namespace PTrampert.ApiProxy
                     Response.Headers.Append(upstreamHeaderKey, new StringValues(upstreamHeaderValues.ToArray()));
                 }
             }
+            // Content headers (Expires, Last-Modified, Content-Disposition, ...) arrive on the content rather than
+            // on the response. Content-Length and Content-Type are left out: ASP.NET Core and the returned
+            // FileResult set those for the response the proxy writes, and ApiProxyConfigValidator reserves them.
+            foreach (var (upstreamHeaderKey, upstreamHeaderValues) in response.Content.Headers)
+            {
+                if (configuredResponseHeaders.Contains(upstreamHeaderKey) && !ProxyOwnedContentHeaders.Contains(upstreamHeaderKey))
+                {
+                    Response.Headers.Append(upstreamHeaderKey, new StringValues(upstreamHeaderValues.ToArray()));
+                }
+            }
 
-            if (HasNoBody(response)) return new EmptyResult();
+            if (!response.HasBody(Request.Method)) return new EmptyResult();
 
 
             var contentType = response.Content.Headers.ContentType;
@@ -113,19 +132,6 @@ namespace PTrampert.ApiProxy
             }
         }
 
-        /// <summary>
-        /// Decides whether the upstream response carries no body. The upstream Content-Length cannot be relied on,
-        /// because a streamed, chunked response has none, so emptiness comes from the request method and status code.
-        /// An explicit Content-Length of zero is also treated as empty.
-        /// </summary>
-        private bool HasNoBody(HttpResponseMessage response)
-        {
-            return HttpMethods.IsHead(Request.Method)
-                || response.StatusCode == HttpStatusCode.NoContent
-                || response.StatusCode == HttpStatusCode.NotModified
-                || response.Content.Headers.ContentLength == 0;
-        }
-
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
         {
             using var upstreamRequest = new HttpRequestMessage(new HttpMethod(Request.Method), new Uri($"{apiConfig.BaseUrl}/{path}{Request.QueryString.Value}"));
@@ -139,22 +145,32 @@ namespace PTrampert.ApiProxy
             foreach (var (incomingHeaderKey, incomingHeaderValues) in Request.Headers)
             {
                 if (!configuredRequestHeaders.Contains(incomingHeaderKey)) continue;
+                // The proxy sets these itself from the request body; ApiProxyConfigValidator reserves them.
+                if (ProxyOwnedContentHeaders.Contains(incomingHeaderKey)) continue;
                 // Values are added without validation so that the upstream API receives the bytes the client
                 // sent. Headers.Add() would parse strongly typed headers and throw a FormatException on a value
                 // it cannot parse (an unbalanced parenthesis in a User-Agent, say), failing the whole request
                 // over a header a proxy has no business reinterpreting.
-                if (!upstreamRequest.Headers.TryAddWithoutValidation(incomingHeaderKey, (IEnumerable<string>)[.. incomingHeaderValues]))
+                if (upstreamRequest.Headers.TryAddWithoutValidation(incomingHeaderKey, (IEnumerable<string>)[.. incomingHeaderValues]))
                 {
-                    // The only remaining reason to be rejected is a misused header name: a content header
-                    // configured in RequestHeaders, which belongs to Content.Headers and can never be forwarded
-                    // here. That is a configuration error, so say which header caused it.
-                    throw new ProxyException(
-                        $"Header '{incomingHeaderKey}' cannot be forwarded as a request header. Remove it from the api's RequestHeaders.",
-                        (int)HttpStatusCode.InternalServerError);
+                    continue;
                 }
+
+                // Request headers refuse content headers (Content-Disposition, Expires, ...), which belong on the
+                // request's content instead. The content is only attached when there is a body, so on a bodyless
+                // request a content header has nowhere to go and is quietly not forwarded.
+                if (content.Headers.TryAddWithoutValidation(incomingHeaderKey, (IEnumerable<string>)[.. incomingHeaderValues]))
+                {
+                    continue;
+                }
+
+                // Neither the request nor its content accepts the name, so it is not a valid header name at all.
+                throw new ProxyException(
+                    $"Header '{incomingHeaderKey}' cannot be forwarded as a request header. Remove it from the api's RequestHeaders.",
+                    (int)HttpStatusCode.InternalServerError);
             }
 
-            if ((Request.ContentLength ?? 0) > 0)
+            if (Request.HasBody())
             {
                 upstreamRequest.Content = content;
                 if (!string.IsNullOrWhiteSpace(Request.ContentType))
