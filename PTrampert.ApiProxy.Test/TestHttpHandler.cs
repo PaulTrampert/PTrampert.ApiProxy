@@ -16,6 +16,8 @@ namespace PTrampert.ApiProxy.Test
 
         public string LastRequestMediaType { get; private set; }
 
+        public bool LastRequestHadContent { get; private set; }
+
         public AuthenticationHeaderValue LastRequestAuthenticationHeader { get; private set; }
 
         /// <summary>
@@ -31,6 +33,7 @@ namespace PTrampert.ApiProxy.Test
             LastRequestUrl = request.RequestUri.ToString();
             LastRequestAuthenticationHeader = request.Headers.Authorization;
             LastRequestHeaders = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal);
+            LastRequestHadContent = request.Content != null;
             if (request.Content != null)
             {
                 LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);

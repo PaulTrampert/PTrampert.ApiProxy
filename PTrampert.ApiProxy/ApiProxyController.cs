@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -113,7 +114,7 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if ((Request.ContentLength ?? 0) > 0)
+            if (RequestHasBody())
             {
                 upstreamRequest.Content = content;
                 upstreamRequest.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
@@ -128,6 +129,16 @@ namespace PTrampert.ApiProxy
             }
 
             return await httpClient.SendAsync(upstreamRequest);
+        }
+
+        // A chunked request has a body but no Content-Length, so Content-Length alone cannot decide this.
+        // The server knows whether the request can carry a body (Kestrel reports it for both framing styles,
+        // and for HTTP/2 and HTTP/3); fall back to inspecting the framing headers when it does not say.
+        private bool RequestHasBody()
+        {
+            var bodyDetection = HttpContext.Features?.Get<IHttpRequestBodyDetectionFeature>();
+            if (bodyDetection != null) return bodyDetection.CanHaveBody;
+            return Request.ContentLength > 0 || Request.Headers.ContainsKey(Microsoft.Net.Http.Headers.HeaderNames.TransferEncoding);
         }
     }
 }
