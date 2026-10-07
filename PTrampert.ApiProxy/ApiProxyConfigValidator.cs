@@ -1,45 +1,44 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PTrampert.ApiProxy.Authentication;
 
 namespace PTrampert.ApiProxy;
 
 /// <summary>
 /// Validates a bound <see cref="ApiProxyConfig"/>, rejecting request and response headers the proxy cannot
-/// forward: content headers, which <c>System.Net.Http</c> keeps on the message's content rather than on the
-/// message, and <c>Authorization</c> for an api whose configured authentication sets it.
+/// forward: <c>Content-Length</c> and <c>Content-Type</c>, which the proxy sets itself from the body it forwards,
+/// and <c>Authorization</c> for an api whose configured authentication sets it.
 /// </summary>
 internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
 {
     /// <summary>
-    /// The headers <c>System.Net.Http</c> keeps on <c>HttpContent.Headers</c> rather than on the message
-    /// itself; this is exactly the set <c>HttpContentHeaders</c> exposes. Neither direction of the proxy can
-    /// carry one: <c>HttpRequestMessage.Headers.TryAddWithoutValidation</c> refuses them all as a "misused
-    /// header name", so a configured request header fails every request to the api, and an upstream response
-    /// puts them on <c>response.Content.Headers</c>, which the proxy never enumerates, so a configured
-    /// response header silently forwards nothing.
+    /// The content headers the proxy owns, in both directions. Every other content header (<c>Expires</c>,
+    /// <c>Last-Modified</c>, <c>Content-Disposition</c>, ...) is forwarded on the message's content, but these
+    /// two describe the body the proxy itself writes: the upstream request's <c>Content-Type</c> comes from the
+    /// incoming request and its length from the body, and on the way back ASP.NET Core sets
+    /// <c>Content-Length</c> and the returned <c>FileResult</c> sets <c>Content-Type</c>. Configuring one would
+    /// promise a copy the proxy never makes.
     /// </summary>
-    /// <remarks>
-    /// Being reserved does not mean the proxy preserves them some other way. Apart from <c>Content-Type</c>,
-    /// which is carried by the returned <c>FileResult</c>, these headers are dropped rather than forwarded.
-    /// Teaching the proxy to forward them from <c>Content.Headers</c> is tracked in issue #240; until then,
-    /// configuring one promises something the proxy does not do.
-    /// </remarks>
-    private static readonly HashSet<string> ContentHeaders = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlySet<string> ReservedContentHeaders = ApiProxyController.ProxyOwnedContentHeaders;
+
+    /// <summary>
+    /// The <see cref="ApiConfig.AuthType"/> value that selects <see cref="PassthroughAuthentication"/>.
+    /// </summary>
+    private static readonly string PassthroughAuthType = $"{typeof(PassthroughAuthentication).FullName}, {typeof(PassthroughAuthentication).Assembly.GetName().Name}";
+
+    private readonly ILogger<ApiProxyConfigValidator> logger;
+
+    /// <summary>
+    /// Constructor for <see cref="ApiProxyConfigValidator"/>.
+    /// </summary>
+    /// <param name="logger">The logger that receives deprecation warnings for configurations that still work.</param>
+    public ApiProxyConfigValidator(ILogger<ApiProxyConfigValidator> logger)
     {
-        "Allow",
-        "Content-Disposition",
-        "Content-Encoding",
-        "Content-Language",
-        "Content-Length",
-        "Content-Location",
-        "Content-MD5",
-        "Content-Range",
-        "Content-Type",
-        "Expires",
-        "Last-Modified"
-    };
+        this.logger = logger;
+    }
 
     /// <summary>
     /// Validate a bound <see cref="ApiProxyConfig"/>.
@@ -48,7 +47,10 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
     /// <c>Authorization</c> is only reserved for an api that configures an <c>AuthType</c>, matching
     /// <see cref="DefaultAuthenticationFactory.BuildAuthentication"/>, which builds no authentication when
     /// <see cref="ApiConfig.AuthType"/> is null. An api without one may forward the client's Authorization
-    /// header, so rejecting that configuration would break working setups.
+    /// header, so rejecting that configuration would break working setups. That implicit passthrough is
+    /// deprecated in favour of <see cref="PassthroughAuthentication"/>, so it is logged as a warning instead.
+    /// <see cref="IValidateOptions{TOptions}"/> has no channel for warnings, which is why it is logged rather
+    /// than returned.
     /// </remarks>
     /// <param name="name">The name of the options instance being validated.</param>
     /// <param name="options">The <see cref="ApiProxyConfig"/> to validate.</param>
@@ -63,19 +65,28 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
         {
             foreach (var header in apiConfig.RequestHeaders ?? Enumerable.Empty<string>())
             {
-                if (ContentHeaders.Contains(header))
+                if (ReservedContentHeaders.Contains(header))
                 {
-                    failures.Add($"Api '{apiName}' configures reserved request header '{header}'. It is a content header, which belongs to the request's content rather than the request itself, so it cannot be added to the upstream request and would fail every request to this api. Remove it from RequestHeaders.");
+                    failures.Add($"Api '{apiName}' configures reserved request header '{header}'. The proxy sets it on the upstream request from the body it forwards, so a configured value would never be copied. Remove it from RequestHeaders.");
                 }
-                else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase) && apiConfig.AuthType != null)
+                else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase))
                 {
-                    failures.Add($"Api '{apiName}' configures reserved request header '{header}', but also configures AuthType '{apiConfig.AuthType}', which sets that header. The configured authentication wins, so the forwarded header would be discarded. Remove it from RequestHeaders.");
+                    if (apiConfig.AuthType != null)
+                    {
+                        failures.Add($"Api '{apiName}' configures reserved request header '{header}', but also configures AuthType '{apiConfig.AuthType}', which sets that header. The configured authentication wins, so the forwarded header would be discarded. Remove it from RequestHeaders.");
+                    }
+                    else
+                    {
+                        logger.LogWarning(
+                            "Api '{ApiName}' forwards the client's Authorization header by listing '{Header}' in RequestHeaders. This implicit passthrough is deprecated and will be rejected in a future major version. Remove it from RequestHeaders and set AuthType to '{PassthroughAuthType}' instead.",
+                            apiName, header, PassthroughAuthType);
+                    }
                 }
             }
 
-            foreach (var header in (apiConfig.ResponseHeaders ?? Enumerable.Empty<string>()).Where(ContentHeaders.Contains))
+            foreach (var header in (apiConfig.ResponseHeaders ?? Enumerable.Empty<string>()).Where(ReservedContentHeaders.Contains))
             {
-                failures.Add($"Api '{apiName}' configures reserved response header '{header}'. It is a content header, which arrives on the upstream response's content rather than on the response itself, where the proxy does not look, so configuring it forwards nothing. Remove it from ResponseHeaders.");
+                failures.Add($"Api '{apiName}' configures reserved response header '{header}'. The proxy sets it on the response from the body it returns, so the upstream value is never copied. Remove it from ResponseHeaders.");
             }
         }
 
