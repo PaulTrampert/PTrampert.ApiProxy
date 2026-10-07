@@ -37,10 +37,11 @@ Key types in the library:
   implementations.
 - `IWebSocketProxy` / `WebSocketProxy` — bidirectional WebSocket pumping.
 - `ApiProxyConfigValidator` — an `IValidateOptions<ApiProxyConfig>`, validated on start, that rejects
-  reserved headers (content headers, and — for an api that configures an `AuthType` — `Authorization` on
-  requests) in an api's `RequestHeaders` / `ResponseHeaders`. The reserved names are documented in
-  `README.md`. It also logs a deprecation warning (not a failure) for `Authorization` in the
-  `RequestHeaders` of an api with no `AuthType`, pointing at `PassthroughAuthentication`.
+  reserved headers (`Content-Length` and `Content-Type`, which the proxy sets itself, and — for an api
+  that configures an `AuthType` — `Authorization` on requests) in an api's `RequestHeaders` /
+  `ResponseHeaders`. Other content headers are forwarded on the message's content. The reserved names
+  are documented in `README.md`. It also logs a deprecation warning (not a failure) for `Authorization`
+  in the `RequestHeaders` of an api with no `AuthType`, pointing at `PassthroughAuthentication`.
 
 ## Build and test
 
