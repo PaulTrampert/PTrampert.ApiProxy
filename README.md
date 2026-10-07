@@ -116,9 +116,8 @@ An api's `AuthType` names the `IAuthentication` that sets the `Authorization` he
 `UserBearerAuthentication` and `PassthroughAuthentication` read the current request through
 `IHttpContextAccessor`, which `AddApiProxy` registers.
 
-Listing `Authorization` in `RequestHeaders` of an api with no `AuthType` also forwards the client's header,
-but that implicit passthrough is **deprecated**: it logs a warning at startup and will be rejected in a
-future major version. Set `AuthType` to `PassthroughAuthentication` instead.
+To forward the client's `Authorization` header, set `AuthType` to `PassthroughAuthentication`. Listing
+`Authorization` in `RequestHeaders` is rejected at startup (see *Reserved Headers*).
 
 ## Reserved Headers
 
@@ -129,7 +128,7 @@ api and the header, instead of failing later on a request.
 | Header | Why it is reserved |
 | --- | --- |
 | `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`, `Content-Length`, `Content-Location`, `Content-MD5`, `Content-Range`, `Content-Type`, `Expires`, `Last-Modified` | These are *content headers*: `System.Net.Http` keeps them on a message's content rather than on the message, and this list is exactly the set `HttpContentHeaders` exposes. The proxy cannot carry one in either direction — adding one to the upstream request is a "misused header name" that fails every request to the api, and on an upstream response they arrive on the response's content, which the proxy does not read, so listing one forwards nothing. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
-| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may still list the header to pass the client's through, but doing so is deprecated and logs a warning at startup; use `PassthroughAuthentication` instead. |
+| `Authorization` | Set only through the api's `AuthType`. Reserved in `RequestHeaders` for every api: with an `AuthType` the configured authentication would discard a forwarded value, and without one the way to pass the client's header through is to set `AuthType` to `PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy`. Not reserved in `ResponseHeaders`. |
 
 Reserved does not mean preserved: apart from `Content-Type`, which the proxy passes on with the response
 body, the content headers are dropped rather than forwarded. Forwarding them from the content they arrive

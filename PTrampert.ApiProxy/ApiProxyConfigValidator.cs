@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PTrampert.ApiProxy.Authentication;
 
@@ -10,7 +9,8 @@ namespace PTrampert.ApiProxy;
 /// <summary>
 /// Validates a bound <see cref="ApiProxyConfig"/>, rejecting request and response headers the proxy cannot
 /// forward: content headers, which <c>System.Net.Http</c> keeps on the message's content rather than on the
-/// message, and <c>Authorization</c> for an api whose configured authentication sets it.
+/// message, and <c>Authorization</c> on requests, which the proxy only sets through an api's configured
+/// authentication.
 /// </summary>
 internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
 {
@@ -48,28 +48,15 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
     /// </summary>
     private static readonly string PassthroughAuthType = $"{typeof(PassthroughAuthentication).FullName}, {typeof(PassthroughAuthentication).Assembly.GetName().Name}";
 
-    private readonly ILogger<ApiProxyConfigValidator> logger;
-
-    /// <summary>
-    /// Constructor for <see cref="ApiProxyConfigValidator"/>.
-    /// </summary>
-    /// <param name="logger">The logger that receives deprecation warnings for configurations that still work.</param>
-    public ApiProxyConfigValidator(ILogger<ApiProxyConfigValidator> logger)
-    {
-        this.logger = logger;
-    }
-
     /// <summary>
     /// Validate a bound <see cref="ApiProxyConfig"/>.
     /// </summary>
     /// <remarks>
-    /// <c>Authorization</c> is only reserved for an api that configures an <c>AuthType</c>, matching
-    /// <see cref="DefaultAuthenticationFactory.BuildAuthentication"/>, which builds no authentication when
-    /// <see cref="ApiConfig.AuthType"/> is null. An api without one may forward the client's Authorization
-    /// header, so rejecting that configuration would break working setups. That implicit passthrough is
-    /// deprecated in favour of <see cref="PassthroughAuthentication"/>, so it is logged as a warning instead.
-    /// <see cref="IValidateOptions{TOptions}"/> has no channel for warnings, which is why it is logged rather
-    /// than returned.
+    /// <c>Authorization</c> is reserved in <see cref="ApiConfig.RequestHeaders"/> whether or not the api configures
+    /// an <see cref="ApiConfig.AuthType"/>. With one, the configured authentication sets the header and would
+    /// discard a forwarded value. Without one, listing the header used to forward the client's Authorization
+    /// implicitly; that is now expressed explicitly by setting <see cref="ApiConfig.AuthType"/> to
+    /// <see cref="PassthroughAuthentication"/>, and the failure message says so.
     /// </remarks>
     /// <param name="name">The name of the options instance being validated.</param>
     /// <param name="options">The <see cref="ApiProxyConfig"/> to validate.</param>
@@ -90,16 +77,9 @@ internal class ApiProxyConfigValidator : IValidateOptions<ApiProxyConfig>
                 }
                 else if (string.Equals(header, "Authorization", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (apiConfig.AuthType != null)
-                    {
-                        failures.Add($"Api '{apiName}' configures reserved request header '{header}', but also configures AuthType '{apiConfig.AuthType}', which sets that header. The configured authentication wins, so the forwarded header would be discarded. Remove it from RequestHeaders.");
-                    }
-                    else
-                    {
-                        logger.LogWarning(
-                            "Api '{ApiName}' forwards the client's Authorization header by listing '{Header}' in RequestHeaders. This implicit passthrough is deprecated and will be rejected in a future major version. Remove it from RequestHeaders and set AuthType to '{PassthroughAuthType}' instead.",
-                            apiName, header, PassthroughAuthType);
-                    }
+                    failures.Add(apiConfig.AuthType != null
+                        ? $"Api '{apiName}' configures reserved request header '{header}', but also configures AuthType '{apiConfig.AuthType}', which sets that header. The configured authentication wins, so the forwarded header would be discarded. Remove it from RequestHeaders."
+                        : $"Api '{apiName}' configures reserved request header '{header}'. Forwarding the client's Authorization header through RequestHeaders is no longer supported. Remove it from RequestHeaders and set AuthType to '{PassthroughAuthType}' instead.");
                 }
             }
 
