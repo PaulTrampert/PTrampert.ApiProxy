@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -386,6 +387,114 @@ namespace PTrampert.ApiProxy.Test
             }
         }
         
+        [Test]
+        public async Task ItStreamsTheUpstreamResponseBeforeTheUpstreamHasFinishedSending()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            // The pipe stands in for an upstream that is still sending: until the writer completes, a buffering
+            // proxy would wait forever for the rest of the body.
+            var upstream = new Pipe();
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(upstream.Reader.AsStream())
+            };
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes("first"));
+
+            var result = await subject.Proxy("fake", "some/path").WaitAsync(TimeSpan.FromSeconds(5));
+
+            var fileStream = ((FileStreamResult)result).FileStream;
+            var firstBytes = new byte[5];
+            await fileStream.ReadExactlyAsync(firstBytes).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(Encoding.UTF8.GetString(firstBytes), Is.EqualTo("first"));
+
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes(" second"));
+            await upstream.Writer.CompleteAsync();
+            var rest = await new StreamReader(fileStream).ReadToEndAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(rest, Is.EqualTo(" second"));
+        }
+
+        [Test]
+        public async Task ItProxiesAChunkedUpstreamResponseWithNoContentLengthIntact()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            var upstream = new Pipe();
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes("chunked body"));
+            await upstream.Writer.CompleteAsync();
+            var upstreamContent = new StreamContent(upstream.Reader.AsStream());
+            upstreamContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = upstreamContent
+            };
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(upstreamContent.Headers.ContentLength, Is.Null);
+                Assert.That(result, Is.InstanceOf<FileStreamResult>());
+                var fileStreamResult = (FileStreamResult)result;
+                Assert.That(fileStreamResult.ContentType, Is.EqualTo("text/plain"));
+                var content = await new StreamReader(fileStreamResult.FileStream).ReadToEndAsync();
+                Assert.That(content, Is.EqualTo("chunked body"));
+            }
+        }
+
+        [TestCase("GET", HttpStatusCode.NoContent)]
+        [TestCase("GET", HttpStatusCode.NotModified)]
+        [TestCase("HEAD", HttpStatusCode.OK)]
+        public async Task ItReturnsAnEmptyResultWhenTheResponseHasNoBody(string method, HttpStatusCode code)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = method;
+            // The content claims a length, as the upstream's headers would for a HEAD request, so emptiness
+            // has to come from the method and status rather than from the length.
+            var upstreamContent = new ByteArrayContent([]);
+            upstreamContent.Headers.ContentLength = 1024;
+            messageHandler.NextResponse = new HttpResponseMessage(code)
+            {
+                Content = upstreamContent
+            };
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(subject.Response.StatusCode, Is.EqualTo((int)code));
+                Assert.That(result, Is.InstanceOf<EmptyResult>());
+            }
+        }
+
+        [Test]
+        public async Task ItDisposesTheUpstreamResponseOnceTheResponseHasBeenWritten()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            var upstreamResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("somebody")
+            };
+            messageHandler.NextResponse = upstreamResponse;
+
+            await subject.Proxy("fake", "some/path");
+
+            httpResponse.Verify(r => r.RegisterForDispose(upstreamResponse));
+        }
+
         [Test]
         public async Task ItAddsAnAuthHeaderIfAuthBuilderReturnsAnAuthentication()
         {
