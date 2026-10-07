@@ -185,7 +185,7 @@ namespace PTrampert.ApiProxy
             var auth = authFactory.BuildAuthentication(apiConfig);
             if (auth != null)
             {
-                upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
+                upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader(HttpContext.RequestAborted);
             }
 
             // ResponseHeadersRead returns as soon as the upstream headers arrive, so the body is streamed to the

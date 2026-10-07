@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -48,7 +49,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
 
             subject.Mode = TokenMode.Claims.ToString();
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             Assert.That(result.Scheme, Is.EqualTo("Bearer"));
             Assert.That(result.Parameter, Is.EqualTo("token"));
@@ -75,7 +76,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
 
             subject.AuthScheme = scheme;
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             Assert.That(result.Scheme, Is.EqualTo("Bearer"));
             Assert.That(result.Parameter, Is.EqualTo("token"));
@@ -89,13 +90,24 @@ namespace PTrampert.ApiProxy.Test.Authentication
 
             try
             {
-                await subject.GetAuthenticationHeader();
+                await subject.GetAuthenticationHeader(CancellationToken.None);
                 Assert.Fail("Should have thrown");
             }
             catch (ArgumentException e)
             {
                 Assert.That(e.Message, Is.EqualTo($"Requested value '{subject.Mode}' was not found."));
             }
+        }
+
+        [TestCase(TokenMode.AuthProps)]
+        [TestCase(TokenMode.Claims)]
+        public void ItThrowsWithoutLookingUpTheTokenWhenTheTokenIsCancelled(TokenMode mode)
+        {
+            subject.Mode = mode.ToString();
+
+            Assert.That(async () => await subject.GetAuthenticationHeader(new CancellationToken(true)),
+                Throws.InstanceOf<OperationCanceledException>());
+            authService.Verify(a => a.AuthenticateAsync(It.IsAny<HttpContext>(), It.IsAny<string>()), Times.Never);
         }
     }
 }

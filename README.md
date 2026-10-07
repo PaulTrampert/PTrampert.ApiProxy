@@ -157,5 +157,42 @@ so on a bodyless request a configured content header is not forwarded.
 
 A request's `Content-Type` is forwarded exactly as the client sent it, without being parsed or validated.
 
+## Custom Authentication
+
+Set an api's `AuthType` to the full type name of your own `IAuthentication` to authenticate upstream
+requests some other way. The proxy builds it through dependency injection, so its constructor may take
+services, and then assigns `AuthProps` to its public settable properties.
+
+`GetAuthenticationHeader` receives the request's `HttpContext.RequestAborted` token. If your
+implementation does I/O, such as fetching or refreshing a token from an identity provider, pass the token
+on so the work stops when the client disconnects.
+
+```csharp
+public class MyAuthentication : IAuthentication
+{
+    public async Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
+    {
+        var token = await tokenClient.GetTokenAsync(cancellationToken);
+        return new AuthenticationHeaderValue("Bearer", token);
+    }
+}
+```
+
+### Upgrading from 2.x
+
+In 3.0.0, `IAuthentication.GetAuthenticationHeader()` gained a required `CancellationToken` parameter.
+Add the parameter to your implementation and pass it to any I/O it awaits; an implementation that does no
+I/O can simply ignore it.
+
+```diff
+- public async Task<AuthenticationHeaderValue> GetAuthenticationHeader()
++ public async Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
+  {
+-     var token = await tokenClient.GetTokenAsync();
++     var token = await tokenClient.GetTokenAsync(cancellationToken);
+      return new AuthenticationHeaderValue("Bearer", token);
+  }
+```
+
 #### Running the Sample App
 A small sample app is included in this project. To run it, simply run `docker compose up`.

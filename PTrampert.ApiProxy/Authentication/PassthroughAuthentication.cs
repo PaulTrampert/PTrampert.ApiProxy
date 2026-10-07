@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using PTrampert.ApiProxy.Exceptions;
@@ -36,6 +37,9 @@ public class PassthroughAuthentication : IAuthentication
     /// <summary>
     /// Builds the upstream authentication header from the incoming request's <c>Authorization</c> header.
     /// </summary>
+    /// <param name="cancellationToken">
+    /// Not observed: the header is copied from the incoming request, so there is no work to cancel.
+    /// </param>
     /// <returns>
     /// The incoming <c>Authorization</c> header as an <see cref="AuthenticationHeaderValue"/>, or <value>null</value>
     /// when the incoming request has none.
@@ -43,7 +47,7 @@ public class PassthroughAuthentication : IAuthentication
     /// <exception cref="ProxyException">
     /// Thrown with status 400 when the incoming header's scheme is not a valid HTTP token, so it cannot be sent upstream.
     /// </exception>
-    public Task<AuthenticationHeaderValue> GetAuthenticationHeader()
+    public Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
     {
         var incoming = httpContext.HttpContext?.Request.Headers.Authorization.ToString();
         if (string.IsNullOrEmpty(incoming))
