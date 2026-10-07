@@ -45,17 +45,14 @@ Key types in the library:
 
 ```bash
 dotnet build PTrampert.ApiProxy.sln
-dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj -f net10.0
+dotnet test PTrampert.ApiProxy.Test/PTrampert.ApiProxy.Test.csproj
 ```
 
 Notes:
 
-- The library and the test project **multi-target `net8.0` and `net10.0`**. `global.json` pins SDK
-  `10.0.100` with `rollForward: latestFeature`.
-- Plain `dotnet test` runs both target frameworks and will abort the `net8.0` run on a machine that
-  has only the .NET 10 runtime installed. Pass `-f net10.0` locally; CI installs both and runs the
-  whole matrix, so do not remove `net8.0` from `TargetFrameworks` to make a local run quieter.
-- Tests collect coverage via coverlet and write `coverage.net*.cobertura.xml` into the test project.
+- Every project targets **`net10.0` only**. `global.json` pins SDK `10.0.100` with
+  `rollForward: latestFeature`, and CI installs the SDK from it.
+- Tests collect coverage via coverlet and write `coverage.cobertura.xml` into the test project.
   That file is gitignored — never commit it.
 - `dotnet restore` emits an `NU1902` warning for a transitive `Microsoft.Build.Tasks.Git` advisory.
   It is pre-existing and not caused by your change.
