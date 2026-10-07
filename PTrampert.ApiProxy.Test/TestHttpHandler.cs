@@ -16,6 +16,8 @@ namespace PTrampert.ApiProxy.Test
 
         public string LastRequestMediaType { get; private set; }
 
+        public bool LastRequestHadContent { get; private set; }
+
         /// <summary>
         /// The Content-Type of the last request exactly as it was set, without parsing, so that tests can assert
         /// values the proxy cannot parse are still forwarded unchanged.
@@ -65,6 +67,7 @@ namespace PTrampert.ApiProxy.Test
                 : null;
             LastRequestContentHeaders = request.Content?.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal)
                 ?? new Dictionary<string, string[]>(StringComparer.Ordinal);
+            LastRequestHadContent = request.Content != null;
             if (request.Content != null)
             {
                 LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
