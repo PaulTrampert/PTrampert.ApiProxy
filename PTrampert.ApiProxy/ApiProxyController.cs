@@ -65,8 +65,13 @@ namespace PTrampert.ApiProxy
                 return new EmptyResult();
             }
             
+            ApplyMaxRequestBodySize(apiConfig);
+
             var response = await MakeRequest(apiConfig, path);
-            
+            // The upstream body is streamed rather than buffered, so the response message has to outlive this
+            // method: it is disposed once ASP.NET Core has finished writing the response to the client.
+            Response.RegisterForDispose(response);
+
             Response.StatusCode = (int) response.StatusCode;
             // As with request headers, names are matched case insensitively but passed back exactly as
             // the upstream API spelled them.
@@ -79,11 +84,46 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (response.Content.Headers.ContentLength is not > 0) return new EmptyResult();
-            
+            if (HasNoBody(response)) return new EmptyResult();
+
+
             var contentType = response.Content.Headers.ContentType;
             var stream = await response.Content.ReadAsStreamAsync();
             return File(stream, contentType?.ToString() ?? "application/octet-stream");
+        }
+
+        private void ApplyMaxRequestBodySize(ApiConfig apiConfig)
+        {
+            var bodySizeFeature = HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
+            if (bodySizeFeature == null) return;
+
+            // Raise (or lower) the host's limit the same way an action would, before anything reads the body.
+            if (apiConfig.MaxRequestBodySize.HasValue && !bodySizeFeature.IsReadOnly)
+            {
+                bodySizeFeature.MaxRequestBodySize = apiConfig.MaxRequestBodySize;
+            }
+
+            // The server only enforces the limit as the body is read, and the body is read while it is being sent
+            // upstream. Reject a declared length over the limit here instead, so the upstream api is never contacted.
+            if (Request.ContentLength > bodySizeFeature.MaxRequestBodySize)
+            {
+                throw new ProxyException(
+                    $"Request body of {Request.ContentLength} bytes exceeds the limit of {bodySizeFeature.MaxRequestBodySize} bytes.",
+                    StatusCodes.Status413PayloadTooLarge);
+            }
+        }
+
+        /// <summary>
+        /// Decides whether the upstream response carries no body. The upstream Content-Length cannot be relied on,
+        /// because a streamed, chunked response has none, so emptiness comes from the request method and status code.
+        /// An explicit Content-Length of zero is also treated as empty.
+        /// </summary>
+        private bool HasNoBody(HttpResponseMessage response)
+        {
+            return HttpMethods.IsHead(Request.Method)
+                || response.StatusCode == HttpStatusCode.NoContent
+                || response.StatusCode == HttpStatusCode.NotModified
+                || response.Content.Headers.ContentLength == 0;
         }
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
@@ -132,7 +172,9 @@ namespace PTrampert.ApiProxy
                 upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
-            return await httpClient.SendAsync(upstreamRequest);
+            // ResponseHeadersRead returns as soon as the upstream headers arrive, so the body is streamed to the
+            // client as it is received instead of being buffered in memory first.
+            return await httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead);
         }
 
         // A chunked request has a body but no Content-Length, so Content-Length alone cannot decide this.
