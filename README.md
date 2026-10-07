@@ -93,6 +93,25 @@ services.AddApiProxy(cfg =>
 The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
 
+## Request Body Size
+
+Requests through the proxy are subject to the host's request body limit, which for Kestrel defaults to
+30 MB. To let an api receive larger bodies, set its `MaxRequestBodySize` (in bytes); omitting it keeps the
+host's limit. The setting can also lower the limit for an api.
+
+```json
+"uploads": {
+  "BaseUrl": "https://example5.com/",
+  "MaxRequestBodySize": 1073741824
+}
+```
+
+The proxy applies the limit through `IHttpMaxRequestBodySizeFeature` before reading the body, the same way
+an action decorated with `[RequestSizeLimit]` would; it cannot change the limit once something earlier in
+the pipeline has started reading the body. A request whose `Content-Length` exceeds the limit (the api's,
+or the host's when the api sets none) is rejected with a `ProxyException` carrying status `413` and is not
+sent upstream. As with the proxy's other errors, map `ProxyException` to its status in your app.
+
 ## Reserved Headers
 
 `RequestHeaders` and `ResponseHeaders` name the headers the proxy passes through. A few headers cannot

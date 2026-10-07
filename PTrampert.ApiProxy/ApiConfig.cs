@@ -51,5 +51,17 @@ namespace PTrampert.ApiProxy
         /// Collection of header keys to proxy up into the request.
         /// </summary>
         public IEnumerable<string> RequestHeaders { get; set; } = new List<string>();
+
+        /// <summary>
+        /// The largest request body, in bytes, the proxy accepts for this api. Use it to let an upstream api
+        /// that accepts large uploads receive bodies over the host's limit (Kestrel's default is 30 MB).
+        /// <c>null</c>, the default, keeps the host's limit. A request whose body exceeds the limit fails with
+        /// <c>413 Payload Too Large</c> and is not forwarded.
+        /// </summary>
+        /// <remarks>
+        /// The limit is applied through <c>IHttpMaxRequestBodySizeFeature</c>, so it has no effect where the host
+        /// does not offer that feature or has already started reading the request body.
+        /// </remarks>
+        public long? MaxRequestBodySize { get; set; }
     }
 }
