@@ -34,6 +34,10 @@ before `app.UseApiProxy()`.
           "TokenKey": "access_token"
       }
     },
+    "passthrough": {
+      "BaseUrl": "https://example5.com/protected-resources",
+      "AuthType": "PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy"
+    },
     "proxy-headers": {
       "BaseUrl": "https://example4.com/",
       "RequestHeaders": [ "X-Some-Header", "User-Agent" ],
@@ -72,6 +76,11 @@ services.AddApiProxy(cfg =>
             { "TokenKey", "access_token" }
         }
     });
+    cfg.Add("passthrough", new ApiConfig
+    {
+        BaseUrl = "https://example5.com/protected-resources",
+        AuthType = typeof(PassthroughAuthentication).FullName
+    });
     cfg.Add("proxy-headers", new ApiConfig
     {
         BaseUrl = "https://example4.com/",
@@ -90,8 +99,26 @@ services.AddApiProxy(cfg =>
   // Pipeline steps after the proxy
 ```
 
-The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
+The above examples configure an api proxy that proxies requests for several different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
+
+## Authentication
+
+An api's `AuthType` names the `IAuthentication` that sets the `Authorization` header on requests to it, and
+`AuthProps` sets that type's public properties. Built-in types live in `PTrampert.ApiProxy.Authentication`:
+
+| `AuthType` | What it sends upstream |
+| --- | --- |
+| `BasicAuthentication` | HTTP Basic credentials built from the configured `Id` and `Secret`. |
+| `UserBearerAuthentication` | A Bearer token for the signed-in user, read from a claim (`Mode: Claims`) or from the authentication properties (`Mode: AuthProps`), named by `TokenKey`. |
+| `PassthroughAuthentication` | The client's own `Authorization` header, as the client sent it. No header is sent when the client sent none. |
+
+`UserBearerAuthentication` and `PassthroughAuthentication` read the current request through
+`IHttpContextAccessor`, which `AddApiProxy` registers.
+
+Listing `Authorization` in `RequestHeaders` of an api with no `AuthType` also forwards the client's header,
+but that implicit passthrough is **deprecated**: it logs a warning at startup and will be rejected in a
+future major version. Set `AuthType` to `PassthroughAuthentication` instead.
 
 ## Reserved Headers
 
@@ -102,7 +129,7 @@ api and the header, instead of failing later on a request.
 | Header | Why it is reserved |
 | --- | --- |
 | `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`, `Content-Length`, `Content-Location`, `Content-MD5`, `Content-Range`, `Content-Type`, `Expires`, `Last-Modified` | These are *content headers*: `System.Net.Http` keeps them on a message's content rather than on the message, and this list is exactly the set `HttpContentHeaders` exposes. The proxy cannot carry one in either direction — adding one to the upstream request is a "misused header name" that fails every request to the api, and on an upstream response they arrive on the response's content, which the proxy does not read, so listing one forwards nothing. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
-| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may list the header to pass the client's through. |
+| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may still list the header to pass the client's through, but doing so is deprecated and logs a warning at startup; use `PassthroughAuthentication` instead. |
 
 Reserved does not mean preserved: apart from `Content-Type`, which the proxy passes on with the response
 body, the content headers are dropped rather than forwarded. Forwarding them from the content they arrive

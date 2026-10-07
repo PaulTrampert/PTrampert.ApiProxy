@@ -101,5 +101,19 @@ namespace PTrampert.ApiProxy.Test
             Assert.That(result.Mode, Is.EqualTo(TokenMode.Claims.ToString()));
             Assert.That(result.TokenKey, Is.EqualTo("token"));
         }
+
+        [Test]
+        public void CanBuildPassthroughAuthentication()
+        {
+            var httpAccessor = new Mock<IHttpContextAccessor>();
+            serviceCollection.AddSingleton(httpAccessor.Object);
+            serviceProvider = serviceCollection.BuildServiceProvider();
+            subject = new DefaultAuthenticationFactory(serviceProvider);
+            config.AuthType = typeof(PassthroughAuthentication).FullName;
+
+            var result = subject.BuildAuthentication(config);
+
+            Assert.That(result, Is.InstanceOf<PassthroughAuthentication>());
+        }
     }
 }
