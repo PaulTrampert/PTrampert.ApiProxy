@@ -37,9 +37,7 @@ namespace PTrampert.ApiProxy.Test
             }));
             var provider = services.BuildServiceProvider();
 
-            // The delegate is cast explicitly because the Action and TestDelegate overloads of Throws are
-            // otherwise ambiguous when building for net8.0.
-            var exception = Assert.Throws<OptionsValidationException>((Action)(() => _ = provider.GetRequiredService<IOptions<ApiProxyConfig>>().Value));
+            var exception = Assert.Throws<OptionsValidationException>(() => _ = provider.GetRequiredService<IOptions<ApiProxyConfig>>().Value);
 
             Assert.That(exception?.Message, Does.Contain("Content-Type"));
         }
