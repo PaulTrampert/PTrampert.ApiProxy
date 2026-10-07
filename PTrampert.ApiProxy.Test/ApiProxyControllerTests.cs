@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -525,6 +526,64 @@ namespace PTrampert.ApiProxy.Test
             await subject.Proxy("fake", "some/path");
 
             Assert.That(messageHandler.LastRequestAuthenticationHeader, Is.SameAs(authHeader));
+        }
+
+        [Test]
+        public async Task ItSendsTheUpstreamRequestWithTheRequestAbortedToken()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
+            using var requestAborted = new CancellationTokenSource();
+            httpContext.SetupGet(c => c.RequestAborted)
+                .Returns(requestAborted.Token);
+
+            bool? cancelledBeforeAbort = null;
+            bool? cancelledAfterAbort = null;
+            // HttpClient links the caller's token with its own timeout, so the handler sees a linked token
+            // rather than RequestAborted itself. Aborting the client request must cancel it.
+            messageHandler.OnSend = token =>
+            {
+                cancelledBeforeAbort = token.IsCancellationRequested;
+                requestAborted.Cancel();
+                cancelledAfterAbort = token.IsCancellationRequested;
+            };
+
+            try
+            {
+                await subject.Proxy("fake", "some/path");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected once the token is cancelled; the assertions below are what this test is about.
+            }
+
+            Assert.That(cancelledBeforeAbort, Is.False);
+            Assert.That(cancelledAfterAbort, Is.True);
+        }
+
+        [Test]
+        public void ItCancelsTheUpstreamRequestWhenTheClientAborts()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
+            using var requestAborted = new CancellationTokenSource();
+            httpContext.SetupGet(c => c.RequestAborted)
+                .Returns(requestAborted.Token);
+            messageHandler.WaitForCancellation = true;
+
+            var proxyTask = subject.Proxy("fake", "some/path");
+            Assert.That(proxyTask.IsCompleted, Is.False);
+            requestAborted.Cancel();
+
+            Assert.That(async () => await proxyTask, Throws.InstanceOf<OperationCanceledException>());
         }
 
         [Test]
