@@ -120,6 +120,25 @@ Listing `Authorization` in `RequestHeaders` of an api with no `AuthType` also fo
 but that implicit passthrough is **deprecated**: it logs a warning at startup and will be rejected in a
 future major version. Set `AuthType` to `PassthroughAuthentication` instead.
 
+## Request Body Size
+
+Requests through the proxy are subject to the host's request body limit, which for Kestrel defaults to
+30 MB. To let an api receive larger bodies, set its `MaxRequestBodySize` (in bytes); omitting it keeps the
+host's limit. The setting can also lower the limit for an api.
+
+```json
+"uploads": {
+  "BaseUrl": "https://example5.com/",
+  "MaxRequestBodySize": 1073741824
+}
+```
+
+The proxy applies the limit through `IHttpMaxRequestBodySizeFeature` before reading the body, the same way
+an action decorated with `[RequestSizeLimit]` would; it cannot change the limit once something earlier in
+the pipeline has started reading the body. A request whose `Content-Length` exceeds the limit (the api's,
+or the host's when the api sets none) is rejected with a `ProxyException` carrying status `413` and is not
+sent upstream. As with the proxy's other errors, map `ProxyException` to its status in your app.
+
 ## Reserved Headers
 
 `RequestHeaders` and `ResponseHeaders` name the headers the proxy passes through. A few headers cannot
@@ -131,8 +150,9 @@ api and the header, instead of failing later on a request.
 | `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`, `Content-Length`, `Content-Location`, `Content-MD5`, `Content-Range`, `Content-Type`, `Expires`, `Last-Modified` | These are *content headers*: `System.Net.Http` keeps them on a message's content rather than on the message, and this list is exactly the set `HttpContentHeaders` exposes. The proxy cannot carry one in either direction — adding one to the upstream request is a "misused header name" that fails every request to the api, and on an upstream response they arrive on the response's content, which the proxy does not read, so listing one forwards nothing. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
 | `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may still list the header to pass the client's through, but doing so is deprecated and logs a warning at startup; use `PassthroughAuthentication` instead. |
 
-Reserved does not mean preserved: apart from `Content-Type`, which the proxy passes on with the response
-body, the content headers are dropped rather than forwarded. Forwarding them from the content they arrive
+Reserved does not mean preserved: apart from `Content-Type`, which the proxy passes on with the request
+and response bodies, the content headers are dropped rather than forwarded. A request's `Content-Type` is
+forwarded exactly as the client sent it, without being parsed or validated. Forwarding them from the content they arrive
 on is tracked in [#240](https://github.com/PaulTrampert/PTrampert.ApiProxy/issues/240).
 
 #### Running the Sample App
