@@ -111,7 +111,7 @@ An api's `AuthType` names the `IAuthentication` that sets the `Authorization` he
 | --- | --- |
 | `BasicAuthentication` | HTTP Basic credentials built from the configured `Id` and `Secret`. |
 | `UserBearerAuthentication` | A Bearer token for the signed-in user, read from a claim (`Mode: Claims`) or from the authentication properties (`Mode: AuthProps`), named by `TokenKey`. |
-| `PassthroughAuthentication` | The client's own `Authorization` header, as the client sent it. No header is sent when the client sent none. |
+| `PassthroughAuthentication` | The client's own `Authorization` header, byte for byte as the client sent it. No header is sent when the client sent none. A header whose scheme is not a valid HTTP token cannot be sent upstream, so the request fails with a `ProxyException` carrying status `400`. |
 
 `UserBearerAuthentication` and `PassthroughAuthentication` read the current request through
 `IHttpContextAccessor`, which `AddApiProxy` registers.
