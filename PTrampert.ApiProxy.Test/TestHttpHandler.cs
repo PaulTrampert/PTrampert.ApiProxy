@@ -43,15 +43,15 @@ namespace PTrampert.ApiProxy.Test
             LastRequestUrl = request.RequestUri.ToString();
             LastRequestAuthenticationHeader = request.Headers.Authorization;
             LastRequestHeaders = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal);
+            // Read before anything else touches the content headers: enumerating them, or ReadAsStringAsync
+            // looking for a charset, parses the Content-Type and normalises the stored value.
+            LastRequestRawContentType = request.Content != null && request.Content.Headers.NonValidated.TryGetValues("Content-Type", out var contentType)
+                ? contentType.ToString()
+                : null;
             LastRequestContentHeaders = request.Content?.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal)
                 ?? new Dictionary<string, string[]>(StringComparer.Ordinal);
             if (request.Content != null)
             {
-                // Read before the body: ReadAsStringAsync parses the Content-Type to find a charset, which
-                // normalises the stored value.
-                LastRequestRawContentType = request.Content.Headers.NonValidated.TryGetValues("Content-Type", out var contentType)
-                    ? contentType.ToString()
-                    : null;
                 LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
                 LastRequestMediaType = request.Content.Headers.ContentType?.MediaType;
             }
