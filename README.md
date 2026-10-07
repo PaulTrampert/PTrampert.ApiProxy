@@ -108,5 +108,42 @@ Reserved does not mean preserved: apart from `Content-Type`, which the proxy pas
 body, the content headers are dropped rather than forwarded. Forwarding them from the content they arrive
 on is tracked in [#240](https://github.com/PaulTrampert/PTrampert.ApiProxy/issues/240).
 
+## Custom Authentication
+
+Set an api's `AuthType` to the full type name of your own `IAuthentication` to authenticate upstream
+requests some other way. The proxy builds it through dependency injection, so its constructor may take
+services, and then assigns `AuthProps` to its public settable properties.
+
+`GetAuthenticationHeader` receives the request's `HttpContext.RequestAborted` token. If your
+implementation does I/O, such as fetching or refreshing a token from an identity provider, pass the token
+on so the work stops when the client disconnects.
+
+```csharp
+public class MyAuthentication : IAuthentication
+{
+    public async Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
+    {
+        var token = await tokenClient.GetTokenAsync(cancellationToken);
+        return new AuthenticationHeaderValue("Bearer", token);
+    }
+}
+```
+
+### Upgrading from 2.x
+
+In 3.0.0, `IAuthentication.GetAuthenticationHeader()` gained a required `CancellationToken` parameter.
+Add the parameter to your implementation and pass it to any I/O it awaits; an implementation that does no
+I/O can simply ignore it.
+
+```diff
+- public async Task<AuthenticationHeaderValue> GetAuthenticationHeader()
++ public async Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
+  {
+-     var token = await tokenClient.GetTokenAsync();
++     var token = await tokenClient.GetTokenAsync(cancellationToken);
+      return new AuthenticationHeaderValue("Bearer", token);
+  }
+```
+
 #### Running the Sample App
 A small sample app is included in this project. To run it, simply run `docker compose up`.

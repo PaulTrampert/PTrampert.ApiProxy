@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PTrampert.ApiProxy.Authentication
@@ -41,10 +42,13 @@ namespace PTrampert.ApiProxy.Authentication
         }
 
         /// <summary>
-        /// Gets the 
+        /// Gets the Basic authentication header built from <see cref="Id"/> and <see cref="Secret"/>.
         /// </summary>
-        /// <returns></returns>
-        public Task<AuthenticationHeaderValue> GetAuthenticationHeader()
+        /// <param name="cancellationToken">
+        /// Not observed: the header is built when the credentials are set, so there is no work to cancel.
+        /// </param>
+        /// <returns>A Basic <see cref="AuthenticationHeaderValue"/></returns>
+        public Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
         {
             return Task.FromResult(header);
         }

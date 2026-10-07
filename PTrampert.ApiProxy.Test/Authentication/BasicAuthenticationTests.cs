@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
@@ -23,7 +24,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
         [Test]
         public async Task ItGeneratesBasicAuthHeader()
         {
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
             Assert.That(result.Scheme, Is.EqualTo("Basic"));
         }
 
@@ -32,7 +33,17 @@ namespace PTrampert.ApiProxy.Test.Authentication
         {
             var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret"));
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
+
+            Assert.That(result.Parameter, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task ItReturnsTheHeaderEvenWhenTheTokenIsCancelled()
+        {
+            var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret"));
+
+            var result = await subject.GetAuthenticationHeader(new CancellationToken(true));
 
             Assert.That(result.Parameter, Is.EqualTo(expected));
         }
