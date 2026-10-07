@@ -110,5 +110,7 @@ other header. `System.Net.Http` keeps them on a message's content rather than on
 forwards them from and to the content accordingly. A request without a body has no content to carry them,
 so on a bodyless request a configured content header is not forwarded.
 
+A request's `Content-Type` is forwarded exactly as the client sent it, without being parsed or validated.
+
 #### Running the Sample App
 A small sample app is included in this project. To run it, simply run `docker compose up`.
