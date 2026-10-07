@@ -111,6 +111,50 @@ namespace PTrampert.ApiProxy.Test
             Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo(contentType));
         }
 
+        [TestCase("text/plain; charset=utf-8")]
+        [TestCase("application/json;charset=UTF-8")]
+        [TestCase("bogus")]
+        [TestCase("text/plain; charset=")]
+        [TestCase("text/ plain")]
+        public async Task ItForwardsTheIncomingContentTypeVerbatim(string contentType)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = contentType;
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+                Assert.That(messageHandler.LastRequestRawContentType, Is.EqualTo(contentType));
+            }
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public async Task ItSendsNoContentTypeWhenTheIncomingRequestHasNone(string contentType)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = contentType;
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestRawContentType, Is.Null);
+        }
+
         [Test]
         public async Task ItForwardsAChunkedRequestBodyThatHasNoContentLength()
         {
