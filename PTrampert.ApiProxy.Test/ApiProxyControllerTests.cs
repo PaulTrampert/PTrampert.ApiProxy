@@ -194,6 +194,93 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
+        public async Task ItProxiesConfiguredContentHeadersOnTheUpstreamRequestContent()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "content-disposition",
+                    "Content-Language"
+                }
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+            requestHeaders["Content-Disposition"] = "attachment; filename=\"some file.txt\"";
+            requestHeaders["Content-Language"] = "en-US";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestContentHeaders["Content-Disposition"], Is.EqualTo(["attachment; filename=\"some file.txt\""]));
+                Assert.That(messageHandler.LastRequestContentHeaders["Content-Language"], Is.EqualTo(["en-US"]));
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("Content-Disposition"), Is.False);
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+            }
+        }
+
+        [Test]
+        public async Task ItSkipsConfiguredContentHeadersOnABodylessRequest()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "Content-Disposition",
+                    "herp"
+                }
+            });
+            subject.Request.Method = "GET";
+            requestHeaders["Content-Disposition"] = "inline";
+            requestHeaders["herp"] = "derp";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestHeaders["herp"], Is.EqualTo(["derp"]));
+                Assert.That(messageHandler.LastRequestHeaders.ContainsKey("Content-Disposition"), Is.False);
+                Assert.That(messageHandler.LastRequestContentHeaders, Is.Empty);
+            }
+        }
+
+        // Content-Type and Content-Length describe the body the proxy forwards, so it sets them itself even if
+        // they slip past ApiProxyConfigValidator.
+        [Test]
+        public async Task ItDoesNotCopyProxyOwnedContentHeadersFromTheIncomingHeaders()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string>
+                {
+                    "Content-Type",
+                    "Content-Length"
+                }
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+            requestHeaders["Content-Type"] = "application/json";
+            requestHeaders["Content-Length"] = "999";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo("text/plain"));
+                Assert.That(messageHandler.LastRequestContentHeaders.ContainsKey("Content-Length"), Is.False);
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+            }
+        }
+
+        [Test]
         public async Task ItThrowsProxyExceptionWhenAConfiguredRequestHeaderCannotBeForwarded()
         {
             proxyConfig.Add("fake", new ApiConfig
@@ -201,11 +288,11 @@ namespace PTrampert.ApiProxy.Test
                 BaseUrl = "https://example.com",
                 RequestHeaders = new List<string>
                 {
-                    "Content-Type"
+                    "Not A Header"
                 }
             });
             subject.Request.Method = "GET";
-            requestHeaders["Content-Type"] = "text/plain";
+            requestHeaders["Not A Header"] = "value";
 
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
             // of ThrowsAsync are otherwise ambiguous.
@@ -214,7 +301,7 @@ namespace PTrampert.ApiProxy.Test
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.InternalServerError));
-                Assert.That(exception?.Message, Does.Contain("Content-Type"));
+                Assert.That(exception?.Message, Does.Contain("Not A Header"));
             }
         }
 
@@ -288,6 +375,92 @@ namespace PTrampert.ApiProxy.Test
                 Assert.That(responseHeaders.Keys, Does.Contain("HeRp-DeRp"));
                 Assert.That(responseHeaders.Keys, Does.Not.Contain("herp-derp"));
                 Assert.That(responseHeaders["HeRp-DeRp"], Is.EqualTo(new StringValues("derp")));
+            }
+        }
+
+        [Test]
+        public async Task ItProxiesConfiguredContentHeadersFromTheUpstreamResponse()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "expires",
+                    "Last-Modified",
+                    "Content-Disposition"
+                }
+            });
+            subject.Request.Method = "GET";
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("somebody", Encoding.UTF8, "text/plain")
+            };
+            messageHandler.NextResponse.Content.Headers.TryAddWithoutValidation("Expires", "Thu, 01 Jan 2026 00:00:00 GMT");
+            messageHandler.NextResponse.Content.Headers.TryAddWithoutValidation("Last-Modified", "Wed, 31 Dec 2025 00:00:00 GMT");
+            messageHandler.NextResponse.Content.Headers.TryAddWithoutValidation("Content-Disposition", "attachment; filename=body.txt");
+            messageHandler.NextResponse.Content.Headers.TryAddWithoutValidation("Content-Language", "en-US");
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(responseHeaders["Expires"], Is.EqualTo(new StringValues("Thu, 01 Jan 2026 00:00:00 GMT")));
+                Assert.That(responseHeaders["Last-Modified"], Is.EqualTo(new StringValues("Wed, 31 Dec 2025 00:00:00 GMT")));
+                Assert.That(responseHeaders["Content-Disposition"], Is.EqualTo(new StringValues("attachment; filename=body.txt")));
+                Assert.That(responseHeaders.ContainsKey("Content-Language"), Is.False);
+            }
+        }
+
+        [Test]
+        public async Task ItProxiesConfiguredContentHeadersFromABodylessUpstreamResponse()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "Expires"
+                }
+            });
+            subject.Request.Method = "GET";
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.NotModified);
+            messageHandler.NextResponse.Content.Headers.TryAddWithoutValidation("Expires", "0");
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result, Is.InstanceOf<EmptyResult>());
+                Assert.That(responseHeaders["Expires"], Is.EqualTo(new StringValues("0")));
+            }
+        }
+
+        [Test]
+        public async Task ItDoesNotCopyProxyOwnedContentHeadersFromTheUpstreamResponse()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                ResponseHeaders = new List<string>
+                {
+                    "Content-Type",
+                    "Content-Length"
+                }
+            });
+            subject.Request.Method = "GET";
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("somebody", Encoding.UTF8, "text/plain")
+            };
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(responseHeaders.ContainsKey("Content-Type"), Is.False);
+                Assert.That(responseHeaders.ContainsKey("Content-Length"), Is.False);
+                Assert.That((result as FileStreamResult)?.ContentType, Does.StartWith("text/plain"));
             }
         }
 

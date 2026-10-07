@@ -24,6 +24,12 @@ namespace PTrampert.ApiProxy.Test
         /// </summary>
         public IDictionary<string, string[]> LastRequestHeaders { get; private set; } = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
+        /// <summary>
+        /// The content headers of the last request, keyed case sensitively like <see cref="LastRequestHeaders"/>.
+        /// Empty when the request had no content.
+        /// </summary>
+        public IDictionary<string, string[]> LastRequestContentHeaders { get; private set; } = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
         public HttpResponseMessage NextResponse { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -31,6 +37,8 @@ namespace PTrampert.ApiProxy.Test
             LastRequestUrl = request.RequestUri.ToString();
             LastRequestAuthenticationHeader = request.Headers.Authorization;
             LastRequestHeaders = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal);
+            LastRequestContentHeaders = request.Content?.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal)
+                ?? new Dictionary<string, string[]>(StringComparer.Ordinal);
             if (request.Content != null)
             {
                 LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
