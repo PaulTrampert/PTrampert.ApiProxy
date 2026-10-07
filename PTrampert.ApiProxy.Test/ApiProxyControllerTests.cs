@@ -194,7 +194,7 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
-        public void ItThrowsProxyExceptionWhenAConfiguredRequestHeaderCannotBeForwarded()
+        public async Task ItThrowsProxyExceptionWhenAConfiguredRequestHeaderCannotBeForwarded()
         {
             proxyConfig.Add("fake", new ApiConfig
             {
@@ -209,7 +209,7 @@ namespace PTrampert.ApiProxy.Test
 
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
             // of ThrowsAsync are otherwise ambiguous.
-            var exception = Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
+            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
 
             using (Assert.EnterMultipleScope())
             {
@@ -379,7 +379,7 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
-        public void ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
+        public async Task ItThrowsProxyExceptionIfApiNotConfiguredForWebSocketsAndWebSocketIsRequested()
         {
             var apiConfig = new ApiConfig
             {
@@ -391,7 +391,7 @@ namespace PTrampert.ApiProxy.Test
 
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
             // of ThrowsAsync are otherwise ambiguous.
-            var exception = Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
+            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
         }
     }
