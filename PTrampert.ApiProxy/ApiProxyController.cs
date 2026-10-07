@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -64,6 +65,8 @@ namespace PTrampert.ApiProxy
                 return new EmptyResult();
             }
             
+            ApplyMaxRequestBodySize(apiConfig);
+
             var response = await MakeRequest(apiConfig, path);
             // The upstream body is streamed rather than buffered, so the response message has to outlive this
             // method: it is disposed once ASP.NET Core has finished writing the response to the client.
@@ -87,6 +90,27 @@ namespace PTrampert.ApiProxy
             var contentType = response.Content.Headers.ContentType;
             var stream = await response.Content.ReadAsStreamAsync();
             return File(stream, contentType?.ToString() ?? "application/octet-stream");
+        }
+
+        private void ApplyMaxRequestBodySize(ApiConfig apiConfig)
+        {
+            var bodySizeFeature = HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
+            if (bodySizeFeature == null) return;
+
+            // Raise (or lower) the host's limit the same way an action would, before anything reads the body.
+            if (apiConfig.MaxRequestBodySize.HasValue && !bodySizeFeature.IsReadOnly)
+            {
+                bodySizeFeature.MaxRequestBodySize = apiConfig.MaxRequestBodySize;
+            }
+
+            // The server only enforces the limit as the body is read, and the body is read while it is being sent
+            // upstream. Reject a declared length over the limit here instead, so the upstream api is never contacted.
+            if (Request.ContentLength > bodySizeFeature.MaxRequestBodySize)
+            {
+                throw new ProxyException(
+                    $"Request body of {Request.ContentLength} bytes exceeds the limit of {bodySizeFeature.MaxRequestBodySize} bytes.",
+                    StatusCodes.Status413PayloadTooLarge);
+            }
         }
 
         /// <summary>
