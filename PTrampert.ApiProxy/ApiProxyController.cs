@@ -116,9 +116,13 @@ namespace PTrampert.ApiProxy
             if ((Request.ContentLength ?? 0) > 0)
             {
                 upstreamRequest.Content = content;
-                upstreamRequest.Content.Headers.ContentType = string.IsNullOrWhiteSpace(Request.ContentType) ?
-                    upstreamRequest.Content.Headers.ContentType
-                    : new MediaTypeHeaderValue(Request.ContentType);
+                if (!string.IsNullOrWhiteSpace(Request.ContentType))
+                {
+                    // Forwarded verbatim, for the same reason as the headers above: parsing it into a
+                    // MediaTypeHeaderValue would throw a FormatException on a value the client sent malformed,
+                    // and would reject a valid one that carries parameters, such as a charset.
+                    upstreamRequest.Content.Headers.TryAddWithoutValidation("Content-Type", Request.ContentType);
+                }
             }
 
             var auth = authFactory.BuildAuthentication(apiConfig);
