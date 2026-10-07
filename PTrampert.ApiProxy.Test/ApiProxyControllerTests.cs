@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipelines;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -8,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -30,6 +32,10 @@ namespace PTrampert.ApiProxy.Test
         private Mock<HttpResponse> httpResponse;
         private HeaderDictionary requestHeaders;
         private HeaderDictionary responseHeaders;
+        private FeatureCollection features;
+        private FakeMaxRequestBodySizeFeature bodySizeFeature;
+
+        private const long KestrelDefaultMaxRequestBodySize = 30_000_000;
 
         [SetUp]
         public void SetUp()
@@ -62,6 +68,14 @@ namespace PTrampert.ApiProxy.Test
                 .Returns(responseHeaders);
             httpContext.SetupGet(c => c.Response)
                 .Returns(httpResponse.Object);
+            bodySizeFeature = new FakeMaxRequestBodySizeFeature
+            {
+                MaxRequestBodySize = KestrelDefaultMaxRequestBodySize
+            };
+            features = new FeatureCollection();
+            features.Set<IHttpMaxRequestBodySizeFeature>(bodySizeFeature);
+            httpContext.SetupGet(c => c.Features)
+                .Returns(features);
             subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object, webSocketProxy.Object);
             subject.ControllerContext = new ControllerContext
             {
@@ -105,6 +119,50 @@ namespace PTrampert.ApiProxy.Test
             Assert.That(messageHandler.LastRequestUrl, Is.EqualTo($"https://example.com/{path}{query}"));
             Assert.That(messageHandler.LastRequestBody, Is.EqualTo(body));
             Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo(contentType));
+        }
+
+        [TestCase("text/plain; charset=utf-8")]
+        [TestCase("application/json;charset=UTF-8")]
+        [TestCase("bogus")]
+        [TestCase("text/plain; charset=")]
+        [TestCase("text/ plain")]
+        public async Task ItForwardsTheIncomingContentTypeVerbatim(string contentType)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = contentType;
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+                Assert.That(messageHandler.LastRequestRawContentType, Is.EqualTo(contentType));
+            }
+        }
+
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        public async Task ItSendsNoContentTypeWhenTheIncomingRequestHasNone(string contentType)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = contentType;
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestRawContentType, Is.Null);
         }
 
         [Test]
@@ -344,6 +402,114 @@ namespace PTrampert.ApiProxy.Test
         }
         
         [Test]
+        public async Task ItStreamsTheUpstreamResponseBeforeTheUpstreamHasFinishedSending()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            // The pipe stands in for an upstream that is still sending: until the writer completes, a buffering
+            // proxy would wait forever for the rest of the body.
+            var upstream = new Pipe();
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(upstream.Reader.AsStream())
+            };
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes("first"));
+
+            var result = await subject.Proxy("fake", "some/path").WaitAsync(TimeSpan.FromSeconds(5));
+
+            var fileStream = ((FileStreamResult)result).FileStream;
+            var firstBytes = new byte[5];
+            await fileStream.ReadExactlyAsync(firstBytes).AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(Encoding.UTF8.GetString(firstBytes), Is.EqualTo("first"));
+
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes(" second"));
+            await upstream.Writer.CompleteAsync();
+            var rest = await new StreamReader(fileStream).ReadToEndAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(rest, Is.EqualTo(" second"));
+        }
+
+        [Test]
+        public async Task ItProxiesAChunkedUpstreamResponseWithNoContentLengthIntact()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            var upstream = new Pipe();
+            await upstream.Writer.WriteAsync(Encoding.UTF8.GetBytes("chunked body"));
+            await upstream.Writer.CompleteAsync();
+            var upstreamContent = new StreamContent(upstream.Reader.AsStream());
+            upstreamContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+            messageHandler.NextResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = upstreamContent
+            };
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(upstreamContent.Headers.ContentLength, Is.Null);
+                Assert.That(result, Is.InstanceOf<FileStreamResult>());
+                var fileStreamResult = (FileStreamResult)result;
+                Assert.That(fileStreamResult.ContentType, Is.EqualTo("text/plain"));
+                var content = await new StreamReader(fileStreamResult.FileStream).ReadToEndAsync();
+                Assert.That(content, Is.EqualTo("chunked body"));
+            }
+        }
+
+        [TestCase("GET", HttpStatusCode.NoContent)]
+        [TestCase("GET", HttpStatusCode.NotModified)]
+        [TestCase("HEAD", HttpStatusCode.OK)]
+        public async Task ItReturnsAnEmptyResultWhenTheResponseHasNoBody(string method, HttpStatusCode code)
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = method;
+            // The content claims a length, as the upstream's headers would for a HEAD request, so emptiness
+            // has to come from the method and status rather than from the length.
+            var upstreamContent = new ByteArrayContent([]);
+            upstreamContent.Headers.ContentLength = 1024;
+            messageHandler.NextResponse = new HttpResponseMessage(code)
+            {
+                Content = upstreamContent
+            };
+
+            var result = await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(subject.Response.StatusCode, Is.EqualTo((int)code));
+                Assert.That(result, Is.InstanceOf<EmptyResult>());
+            }
+        }
+
+        [Test]
+        public async Task ItDisposesTheUpstreamResponseOnceTheResponseHasBeenWritten()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            var upstreamResponse = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("somebody")
+            };
+            messageHandler.NextResponse = upstreamResponse;
+
+            await subject.Proxy("fake", "some/path");
+
+            httpResponse.Verify(r => r.RegisterForDispose(upstreamResponse));
+        }
+
+        [Test]
         public async Task ItAddsAnAuthHeaderIfAuthBuilderReturnsAnAuthentication()
         {
             proxyConfig.Add("fake", new ApiConfig
@@ -385,6 +551,64 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
+        public async Task ItSendsTheUpstreamRequestWithTheRequestAbortedToken()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
+            using var requestAborted = new CancellationTokenSource();
+            httpContext.SetupGet(c => c.RequestAborted)
+                .Returns(requestAborted.Token);
+
+            bool? cancelledBeforeAbort = null;
+            bool? cancelledAfterAbort = null;
+            // HttpClient links the caller's token with its own timeout, so the handler sees a linked token
+            // rather than RequestAborted itself. Aborting the client request must cancel it.
+            messageHandler.OnSend = token =>
+            {
+                cancelledBeforeAbort = token.IsCancellationRequested;
+                requestAborted.Cancel();
+                cancelledAfterAbort = token.IsCancellationRequested;
+            };
+
+            try
+            {
+                await subject.Proxy("fake", "some/path");
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected once the token is cancelled; the assertions below are what this test is about.
+            }
+
+            Assert.That(cancelledBeforeAbort, Is.False);
+            Assert.That(cancelledAfterAbort, Is.True);
+        }
+
+        [Test]
+        public void ItCancelsTheUpstreamRequestWhenTheClientAborts()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
+            using var requestAborted = new CancellationTokenSource();
+            httpContext.SetupGet(c => c.RequestAborted)
+                .Returns(requestAborted.Token);
+            messageHandler.WaitForCancellation = true;
+
+            var proxyTask = subject.Proxy("fake", "some/path");
+            Assert.That(proxyTask.IsCompleted, Is.False);
+            requestAborted.Cancel();
+
+            Assert.That(async () => await proxyTask, Throws.InstanceOf<OperationCanceledException>());
+        }
+
+        [Test]
         public async Task ItProxiesWebSocketConnectionsWhenRequested()
         {
             var apiConfig = new ApiConfig
@@ -416,6 +640,145 @@ namespace PTrampert.ApiProxy.Test
             // of ThrowsAsync are otherwise ambiguous.
             var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
             Assert.That(exception?.Status, Is.EqualTo((int)HttpStatusCode.BadRequest));
+        }
+
+        [Test]
+        public async Task ItForwardsABodyOverTheHostDefaultWhenTheApiAllowsIt()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                MaxRequestBodySize = 1L << 30
+            });
+            subject.Request.Method = "POST";
+            // The declared length is what the limit is checked against; the stream itself is kept small.
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = KestrelDefaultMaxRequestBodySize + 1;
+            subject.Request.ContentType = "application/octet-stream";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(bodySizeFeature.MaxRequestBodySize, Is.EqualTo(1L << 30));
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+            }
+        }
+
+        [Test]
+        public async Task ItRejectsABodyOverTheConfiguredLimitWithoutContactingTheUpstream()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                MaxRequestBodySize = 5
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+
+            // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
+            // of ThrowsAsync are otherwise ambiguous.
+            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exception?.Status, Is.EqualTo(StatusCodes.Status413PayloadTooLarge));
+                Assert.That(bodySizeFeature.MaxRequestBodySize, Is.EqualTo(5));
+                Assert.That(messageHandler.LastRequestUrl, Is.Null);
+            }
+        }
+
+        [Test]
+        public async Task ItKeepsTheHostDefaultLimitWhenTheApiDoesNotConfigureOne()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(bodySizeFeature.MaxRequestBodySize, Is.EqualTo(KestrelDefaultMaxRequestBodySize));
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+            }
+        }
+
+        [Test]
+        public async Task ItRejectsABodyOverTheHostDefaultWhenTheApiDoesNotConfigureALimit()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = KestrelDefaultMaxRequestBodySize + 1;
+            subject.Request.ContentType = "application/octet-stream";
+
+            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.Proxy("fake", "some/path")));
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(exception?.Status, Is.EqualTo(StatusCodes.Status413PayloadTooLarge));
+                Assert.That(messageHandler.LastRequestUrl, Is.Null);
+            }
+        }
+
+        [Test]
+        public async Task ItLeavesAReadOnlyBodySizeLimitAlone()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                MaxRequestBodySize = 1L << 30
+            });
+            bodySizeFeature.IsReadOnly = true;
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(bodySizeFeature.MaxRequestBodySize, Is.EqualTo(KestrelDefaultMaxRequestBodySize));
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+            }
+        }
+
+        [Test]
+        public async Task ItForwardsTheBodyWhenTheHostOffersNoBodySizeFeature()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                MaxRequestBodySize = 5
+            });
+            features.Set<IHttpMaxRequestBodySizeFeature>(null);
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("something"));
+            subject.Request.ContentLength = subject.Request.Body.Length;
+            subject.Request.ContentType = "text/plain";
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestBody, Is.EqualTo("something"));
+        }
+
+        private class FakeMaxRequestBodySizeFeature : IHttpMaxRequestBodySizeFeature
+        {
+            public bool IsReadOnly { get; set; }
+
+            public long? MaxRequestBodySize { get; set; }
         }
     }
 }

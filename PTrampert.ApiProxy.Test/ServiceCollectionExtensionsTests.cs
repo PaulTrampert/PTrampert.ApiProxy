@@ -37,9 +37,7 @@ namespace PTrampert.ApiProxy.Test
             }));
             var provider = services.BuildServiceProvider();
 
-            // The delegate is cast explicitly because the Action and TestDelegate overloads of Throws are
-            // otherwise ambiguous when building for net8.0.
-            var exception = Assert.Throws<OptionsValidationException>((Action)(() => _ = provider.GetRequiredService<IOptions<ApiProxyConfig>>().Value));
+            var exception = Assert.Throws<OptionsValidationException>(() => _ = provider.GetRequiredService<IOptions<ApiProxyConfig>>().Value);
 
             Assert.That(exception?.Message, Does.Contain("Content-Type"));
         }
@@ -48,8 +46,8 @@ namespace PTrampert.ApiProxy.Test
         public async Task ItFailsHostStartupWhenAConfiguredHeaderIsReserved()
         {
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
-            // of ThrowsAsync are otherwise ambiguous. Build and start are both inside it because the
-            // startup validator may run in either step depending on the target framework.
+            // of ThrowsAsync are otherwise ambiguous. Build and start are both inside it so the test
+            // does not depend on which of the two steps runs the startup validator.
             var exception = await Assert.ThrowsAsync<OptionsValidationException>((Func<Task>)(async () =>
             {
                 using var host = new HostBuilder()
