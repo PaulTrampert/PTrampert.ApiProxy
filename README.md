@@ -34,6 +34,10 @@ before `app.UseApiProxy()`.
           "TokenKey": "access_token"
       }
     },
+    "passthrough": {
+      "BaseUrl": "https://example5.com/protected-resources",
+      "AuthType": "PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy"
+    },
     "proxy-headers": {
       "BaseUrl": "https://example4.com/",
       "RequestHeaders": [ "X-Some-Header", "User-Agent" ],
@@ -72,6 +76,11 @@ services.AddApiProxy(cfg =>
             { "TokenKey", "access_token" }
         }
     });
+    cfg.Add("passthrough", new ApiConfig
+    {
+        BaseUrl = "https://example5.com/protected-resources",
+        AuthType = typeof(PassthroughAuthentication).FullName
+    });
     cfg.Add("proxy-headers", new ApiConfig
     {
         BaseUrl = "https://example4.com/",
@@ -90,8 +99,45 @@ services.AddApiProxy(cfg =>
   // Pipeline steps after the proxy
 ```
 
-The above examples configure an api proxy that proxies requests for 4 different apis. If the app root exists at `https://myapp.com/root`,
+The above examples configure an api proxy that proxies requests for several different apis. If the app root exists at `https://myapp.com/root`,
 then a client can call `https://example1.com/some/route` by calling `https://myapp.com/root/apiproxy/simple/some/route`.
+
+## Authentication
+
+An api's `AuthType` names the `IAuthentication` that sets the `Authorization` header on requests to it, and
+`AuthProps` sets that type's public properties. Built-in types live in `PTrampert.ApiProxy.Authentication`:
+
+| `AuthType` | What it sends upstream |
+| --- | --- |
+| `BasicAuthentication` | HTTP Basic credentials built from the configured `Id` and `Secret`. |
+| `UserBearerAuthentication` | A Bearer token for the signed-in user, read from a claim (`Mode: Claims`) or from the authentication properties (`Mode: AuthProps`), named by `TokenKey`. |
+| `PassthroughAuthentication` | The client's own `Authorization` header, byte for byte as the client sent it. No header is sent when the client sent none. A header whose scheme is not a valid HTTP token cannot be sent upstream, so the request fails with a `ProxyException` carrying status `400`. |
+
+`UserBearerAuthentication` and `PassthroughAuthentication` read the current request through
+`IHttpContextAccessor`, which `AddApiProxy` registers.
+
+Listing `Authorization` in `RequestHeaders` of an api with no `AuthType` also forwards the client's header,
+but that implicit passthrough is **deprecated**: it logs a warning at startup and will be rejected in a
+future major version. Set `AuthType` to `PassthroughAuthentication` instead.
+
+## Request Body Size
+
+Requests through the proxy are subject to the host's request body limit, which for Kestrel defaults to
+30 MB. To let an api receive larger bodies, set its `MaxRequestBodySize` (in bytes); omitting it keeps the
+host's limit. The setting can also lower the limit for an api.
+
+```json
+"uploads": {
+  "BaseUrl": "https://example5.com/",
+  "MaxRequestBodySize": 1073741824
+}
+```
+
+The proxy applies the limit through `IHttpMaxRequestBodySizeFeature` before reading the body, the same way
+an action decorated with `[RequestSizeLimit]` would; it cannot change the limit once something earlier in
+the pipeline has started reading the body. A request whose `Content-Length` exceeds the limit (the api's,
+or the host's when the api sets none) is rejected with a `ProxyException` carrying status `413` and is not
+sent upstream. As with the proxy's other errors, map `ProxyException` to its status in your app.
 
 ## Reserved Headers
 
@@ -102,7 +148,7 @@ api and the header, instead of failing later on a request.
 | Header | Why it is reserved |
 | --- | --- |
 | `Content-Length`, `Content-Type` | The proxy sets these itself from the body it forwards: the upstream request takes the client's `Content-Type` and gets its `Content-Length` from the body `HttpClient` sends, and the response the proxy writes gets its `Content-Type` from the upstream body and its `Content-Length` from ASP.NET Core. A configured value would never be copied. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
-| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may list the header to pass the client's through. |
+| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may still list the header to pass the client's through, but doing so is deprecated and logs a warning at startup; use `PassthroughAuthentication` instead. |
 
 The other *content headers* — `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`,
 `Content-Location`, `Content-MD5`, `Content-Range`, `Expires` and `Last-Modified` — can be listed like any

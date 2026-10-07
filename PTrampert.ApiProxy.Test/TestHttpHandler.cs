@@ -38,8 +38,23 @@ namespace PTrampert.ApiProxy.Test
 
         public HttpResponseMessage NextResponse { get; set; }
 
+        /// <summary>
+        /// Invoked with the request's cancellation token while the request is being sent. HttpClient hands
+        /// the handler a token linked to the caller's, and disposes the link once the send completes, so the
+        /// token can only be observed meaningfully from inside the send.
+        /// </summary>
+        public Action<CancellationToken> OnSend { get; set; }
+
+        /// <summary>
+        /// When set, the handler waits for the request to be cancelled before responding, simulating an upstream
+        /// API that is slow to answer. The wait is bounded, so that a request which is never cancelled fails the
+        /// test by responding normally instead of hanging it.
+        /// </summary>
+        public bool WaitForCancellation { get; set; }
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            OnSend?.Invoke(cancellationToken);
             LastRequestUrl = request.RequestUri.ToString();
             LastRequestAuthenticationHeader = request.Headers.Authorization;
             LastRequestHeaders = request.Headers.ToDictionary(h => h.Key, h => h.Value.ToArray(), StringComparer.Ordinal);
@@ -54,6 +69,11 @@ namespace PTrampert.ApiProxy.Test
             {
                 LastRequestBody = await request.Content.ReadAsStringAsync(cancellationToken);
                 LastRequestMediaType = request.Content.Headers.ContentType?.MediaType;
+            }
+
+            if (WaitForCancellation)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
 
             return NextResponse;

@@ -33,13 +33,15 @@ Key types in the library:
   `DefaultAuthenticationFactory` resolves `ApiConfig.AuthType` by name via `Type.GetType`, constructs
   it through `ActivatorUtilities` (so constructor injection works), then assigns public settable
   properties from `ApiConfig.AuthProps`.
-- `BasicAuthentication`, `UserBearerAuthentication` — the two built-in `IAuthentication` implementations.
+- `BasicAuthentication`, `UserBearerAuthentication`, `PassthroughAuthentication` — the built-in `IAuthentication`
+  implementations.
 - `IWebSocketProxy` / `WebSocketProxy` — bidirectional WebSocket pumping.
 - `ApiProxyConfigValidator` — an `IValidateOptions<ApiProxyConfig>`, validated on start, that rejects
   reserved headers (`Content-Length` and `Content-Type`, which the proxy sets itself, and — for an api
   that configures an `AuthType` — `Authorization` on requests) in an api's `RequestHeaders` /
   `ResponseHeaders`. Other content headers are forwarded on the message's content. The reserved names
-  are documented in `README.md`.
+  are documented in `README.md`. It also logs a deprecation warning (not a failure) for `Authorization`
+  in the `RequestHeaders` of an api with no `AuthType`, pointing at `PassthroughAuthentication`.
 
 ## Build and test
 

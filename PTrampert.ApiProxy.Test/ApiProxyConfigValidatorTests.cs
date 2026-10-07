@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using Microsoft.Extensions.Logging;
+using Moq;
 using NUnit.Framework;
 using PTrampert.ApiProxy.Authentication;
 
@@ -9,11 +12,13 @@ namespace PTrampert.ApiProxy.Test
     {
         private ApiProxyConfigValidator subject;
         private ApiProxyConfig config;
+        private Mock<ILogger<ApiProxyConfigValidator>> logger;
 
         [SetUp]
         public void SetUp()
         {
-            subject = new ApiProxyConfigValidator();
+            logger = new Mock<ILogger<ApiProxyConfigValidator>>();
+            subject = new ApiProxyConfigValidator(logger.Object);
             config = new ApiProxyConfig();
         }
 
@@ -99,6 +104,68 @@ namespace PTrampert.ApiProxy.Test
             var result = subject.Validate(null, config);
 
             Assert.That(result.Succeeded, Is.True);
+        }
+
+        // The implicit passthrough keeps working, but is deprecated in favour of PassthroughAuthentication.
+        // IValidateOptions has no warning channel, so the deprecation is logged rather than returned.
+        [TestCase("Authorization")]
+        [TestCase("authorization")]
+        public void ItLogsADeprecationWarningWhenAuthorizationIsConfiguredAsARequestHeaderWithoutAnAuthType(string header)
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string> { header }
+            });
+
+            subject.Validate(null, config);
+
+            logger.Verify(l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString().Contains("fake") && state.ToString().Contains(header) && state.ToString().Contains("PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy")),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Once);
+        }
+
+        [Test]
+        public void ItLogsNoWarningWhenAuthorizationIsNotConfiguredAsARequestHeader()
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string> { "X-Some-Header" },
+                ResponseHeaders = new List<string> { "Authorization" }
+            });
+
+            subject.Validate(null, config);
+
+            logger.Verify(l => l.Log(
+                It.IsAny<LogLevel>(),
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Never);
+        }
+
+        [Test]
+        public void ItLogsNoWarningWhenAuthorizationIsRejectedAlongsideAnAuthType()
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                AuthType = typeof(BasicAuthentication).AssemblyQualifiedName,
+                RequestHeaders = new List<string> { "Authorization" }
+            });
+
+            subject.Validate(null, config);
+
+            logger.Verify(l => l.Log(
+                It.IsAny<LogLevel>(),
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Never);
         }
 
         [TestCase("Content-Type")]
