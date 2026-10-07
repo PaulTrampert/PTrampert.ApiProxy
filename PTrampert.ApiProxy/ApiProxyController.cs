@@ -173,8 +173,10 @@ namespace PTrampert.ApiProxy
             }
 
             // ResponseHeadersRead returns as soon as the upstream headers arrive, so the body is streamed to the
-            // client as it is received instead of being buffered in memory first.
-            return await httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead);
+            // client as it is received instead of being buffered in memory first. If the client disconnects, stop
+            // waiting on the upstream API too. The resulting OperationCanceledException is left to propagate:
+            // ASP.NET Core recognises it as a client abort.
+            return await httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
         }
     }
 }
