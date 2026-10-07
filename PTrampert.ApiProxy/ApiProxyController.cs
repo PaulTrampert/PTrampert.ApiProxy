@@ -65,7 +65,10 @@ namespace PTrampert.ApiProxy
             }
             
             var response = await MakeRequest(apiConfig, path);
-            
+            // The upstream body is streamed rather than buffered, so the response message has to outlive this
+            // method: it is disposed once ASP.NET Core has finished writing the response to the client.
+            Response.RegisterForDispose(response);
+
             Response.StatusCode = (int) response.StatusCode;
             // As with request headers, names are matched case insensitively but passed back exactly as
             // the upstream API spelled them.
@@ -78,11 +81,25 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (response.Content.Headers.ContentLength is not > 0) return new EmptyResult();
-            
+            if (HasNoBody(response)) return new EmptyResult();
+
+
             var contentType = response.Content.Headers.ContentType;
             var stream = await response.Content.ReadAsStreamAsync();
             return File(stream, contentType?.ToString() ?? "application/octet-stream");
+        }
+
+        /// <summary>
+        /// Decides whether the upstream response carries no body. The upstream Content-Length cannot be relied on,
+        /// because a streamed, chunked response has none, so emptiness comes from the request method and status code.
+        /// An explicit Content-Length of zero is also treated as empty.
+        /// </summary>
+        private bool HasNoBody(HttpResponseMessage response)
+        {
+            return HttpMethods.IsHead(Request.Method)
+                || response.StatusCode == HttpStatusCode.NoContent
+                || response.StatusCode == HttpStatusCode.NotModified
+                || response.Content.Headers.ContentLength == 0;
         }
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
@@ -127,7 +144,9 @@ namespace PTrampert.ApiProxy
                 upstreamRequest.Headers.Authorization = await auth.GetAuthenticationHeader();
             }
 
-            return await httpClient.SendAsync(upstreamRequest);
+            // ResponseHeadersRead returns as soon as the upstream headers arrive, so the body is streamed to the
+            // client as it is received instead of being buffered in memory first.
+            return await httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead);
         }
     }
 }
