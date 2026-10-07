@@ -116,9 +116,8 @@ An api's `AuthType` names the `IAuthentication` that sets the `Authorization` he
 `UserBearerAuthentication` and `PassthroughAuthentication` read the current request through
 `IHttpContextAccessor`, which `AddApiProxy` registers.
 
-Listing `Authorization` in `RequestHeaders` of an api with no `AuthType` also forwards the client's header,
-but that implicit passthrough is **deprecated**: it logs a warning at startup and will be rejected in a
-future major version. Set `AuthType` to `PassthroughAuthentication` instead.
+To forward the client's `Authorization` header, set `AuthType` to `PassthroughAuthentication`. Listing
+`Authorization` in `RequestHeaders` is rejected at startup (see *Reserved Headers*).
 
 ## Request Body Size
 
@@ -148,7 +147,7 @@ api and the header, instead of failing later on a request.
 | Header | Why it is reserved |
 | --- | --- |
 | `Content-Length`, `Content-Type` | The proxy sets these itself from the body it forwards: the upstream request takes the client's `Content-Type` and gets its `Content-Length` from the body `HttpClient` sends, and the response the proxy writes gets its `Content-Type` from the upstream body and its `Content-Length` from ASP.NET Core. A configured value would never be copied. Reserved in both `RequestHeaders` and `ResponseHeaders`. |
-| `Authorization` | Set from the api's configured `AuthType`, which would discard a forwarded value. Reserved in `RequestHeaders`, but only for an api that configures an `AuthType`. An api without one sets no `Authorization` of its own, so it may still list the header to pass the client's through, but doing so is deprecated and logs a warning at startup; use `PassthroughAuthentication` instead. |
+| `Authorization` | Set only through the api's `AuthType`. Reserved in `RequestHeaders` for every api: with an `AuthType` the configured authentication would discard a forwarded value, and without one the way to pass the client's header through is to set `AuthType` to `PTrampert.ApiProxy.Authentication.PassthroughAuthentication, PTrampert.ApiProxy`. Not reserved in `ResponseHeaders`. |
 
 The other *content headers* — `Allow`, `Content-Disposition`, `Content-Encoding`, `Content-Language`,
 `Content-Location`, `Content-MD5`, `Content-Range`, `Expires` and `Last-Modified` — can be listed like any
