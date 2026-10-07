@@ -45,12 +45,12 @@ namespace PTrampert.ApiProxy.Test
         }
 
         [Test]
-        public void ItFailsHostStartupWhenAConfiguredHeaderIsReserved()
+        public async Task ItFailsHostStartupWhenAConfiguredHeaderIsReserved()
         {
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads
             // of ThrowsAsync are otherwise ambiguous. Build and start are both inside it because the
             // startup validator may run in either step depending on the target framework.
-            var exception = Assert.ThrowsAsync<OptionsValidationException>((Func<Task>)(async () =>
+            var exception = await Assert.ThrowsAsync<OptionsValidationException>((Func<Task>)(async () =>
             {
                 using var host = new HostBuilder()
                     .ConfigureServices(services => services.AddApiProxy(cfg => cfg.Add("fake", new ApiConfig
