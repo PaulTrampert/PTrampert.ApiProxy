@@ -103,7 +103,7 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (HasNoBody(response)) return new EmptyResult();
+            if (!response.HasBody(Request.Method)) return new EmptyResult();
 
 
             var contentType = response.Content.Headers.ContentType;
@@ -130,19 +130,6 @@ namespace PTrampert.ApiProxy
                     $"Request body of {Request.ContentLength} bytes exceeds the limit of {bodySizeFeature.MaxRequestBodySize} bytes.",
                     StatusCodes.Status413PayloadTooLarge);
             }
-        }
-
-        /// <summary>
-        /// Decides whether the upstream response carries no body. The upstream Content-Length cannot be relied on,
-        /// because a streamed, chunked response has none, so emptiness comes from the request method and status code.
-        /// An explicit Content-Length of zero is also treated as empty.
-        /// </summary>
-        private bool HasNoBody(HttpResponseMessage response)
-        {
-            return HttpMethods.IsHead(Request.Method)
-                || response.StatusCode == HttpStatusCode.NoContent
-                || response.StatusCode == HttpStatusCode.NotModified
-                || response.Content.Headers.ContentLength == 0;
         }
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
@@ -183,7 +170,7 @@ namespace PTrampert.ApiProxy
                     (int)HttpStatusCode.InternalServerError);
             }
 
-            if ((Request.ContentLength ?? 0) > 0)
+            if (Request.HasBody())
             {
                 upstreamRequest.Content = content;
                 if (!string.IsNullOrWhiteSpace(Request.ContentType))

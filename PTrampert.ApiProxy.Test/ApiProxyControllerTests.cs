@@ -56,6 +56,11 @@ namespace PTrampert.ApiProxy.Test
                 .Returns(requestHeaders);
             httpContext.SetupGet(c => c.Request)
                 .Returns(httpRequest.Object);
+            httpRequest.SetupGet(r => r.HttpContext)
+                .Returns(httpContext.Object);
+            features = new FeatureCollection();
+            httpContext.SetupGet(c => c.Features)
+                .Returns(features);
             webSockets = new Mock<WebSocketManager>();
             webSockets.SetupGet(ws => ws.IsWebSocketRequest)
                 .Returns(false);
@@ -72,10 +77,7 @@ namespace PTrampert.ApiProxy.Test
             {
                 MaxRequestBodySize = KestrelDefaultMaxRequestBodySize
             };
-            features = new FeatureCollection();
             features.Set<IHttpMaxRequestBodySizeFeature>(bodySizeFeature);
-            httpContext.SetupGet(c => c.Features)
-                .Returns(features);
             subject = new ApiProxyController(httpClient, proxyConfigOpts.Object, authBuilder.Object, webSocketProxy.Object);
             subject.ControllerContext = new ControllerContext
             {
@@ -163,6 +165,82 @@ namespace PTrampert.ApiProxy.Test
             await subject.Proxy("fake", "some/path");
 
             Assert.That(messageHandler.LastRequestRawContentType, Is.Null);
+        }
+
+        [Test]
+        public async Task ItForwardsAChunkedRequestBodyThatHasNoContentLength()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("chunked body"));
+            subject.Request.ContentLength = null;
+            subject.Request.ContentType = "text/plain";
+            requestHeaders["Transfer-Encoding"] = "chunked";
+
+            await subject.Proxy("fake", "some/path");
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(messageHandler.LastRequestBody, Is.EqualTo("chunked body"));
+                Assert.That(messageHandler.LastRequestMediaType, Is.EqualTo("text/plain"));
+            }
+        }
+
+        [Test]
+        public async Task ItForwardsABodyWhenTheServerReportsTheRequestCanHaveOne()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            var bodyDetection = new Mock<IHttpRequestBodyDetectionFeature>();
+            bodyDetection.SetupGet(f => f.CanHaveBody).Returns(true);
+            features.Set(bodyDetection.Object);
+            subject.Request.Method = "POST";
+            subject.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("chunked body"));
+            subject.Request.ContentLength = null;
+            subject.Request.ContentType = "text/plain";
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestBody, Is.EqualTo("chunked body"));
+        }
+
+        [Test]
+        public async Task ItSendsNoContentWhenTheServerReportsTheRequestCannotHaveABody()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            var bodyDetection = new Mock<IHttpRequestBodyDetectionFeature>();
+            bodyDetection.SetupGet(f => f.CanHaveBody).Returns(false);
+            features.Set(bodyDetection.Object);
+            subject.Request.Method = "GET";
+            subject.Request.Body = Stream.Null;
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestHadContent, Is.False);
+        }
+
+        [Test]
+        public async Task ItSendsNoContentForABodylessRequest()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            subject.Request.Method = "GET";
+            subject.Request.Body = Stream.Null;
+            subject.Request.ContentLength = null;
+
+            await subject.Proxy("fake", "some/path");
+
+            Assert.That(messageHandler.LastRequestHadContent, Is.False);
         }
 
         [Test]
