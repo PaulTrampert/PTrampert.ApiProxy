@@ -56,6 +56,8 @@ namespace PTrampert.ApiProxy.Test
                 .Returns(requestHeaders);
             httpContext.SetupGet(c => c.Request)
                 .Returns(httpRequest.Object);
+            httpRequest.SetupGet(r => r.HttpContext)
+                .Returns(httpContext.Object);
             features = new FeatureCollection();
             httpContext.SetupGet(c => c.Features)
                 .Returns(features);

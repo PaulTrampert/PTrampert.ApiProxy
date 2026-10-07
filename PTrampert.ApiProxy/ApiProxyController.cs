@@ -84,7 +84,7 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (HasNoBody(response)) return new EmptyResult();
+            if (!response.HasBody(Request.Method)) return new EmptyResult();
 
 
             var contentType = response.Content.Headers.ContentType;
@@ -111,19 +111,6 @@ namespace PTrampert.ApiProxy
                     $"Request body of {Request.ContentLength} bytes exceeds the limit of {bodySizeFeature.MaxRequestBodySize} bytes.",
                     StatusCodes.Status413PayloadTooLarge);
             }
-        }
-
-        /// <summary>
-        /// Decides whether the upstream response carries no body. The upstream Content-Length cannot be relied on,
-        /// because a streamed, chunked response has none, so emptiness comes from the request method and status code.
-        /// An explicit Content-Length of zero is also treated as empty.
-        /// </summary>
-        private bool HasNoBody(HttpResponseMessage response)
-        {
-            return HttpMethods.IsHead(Request.Method)
-                || response.StatusCode == HttpStatusCode.NoContent
-                || response.StatusCode == HttpStatusCode.NotModified
-                || response.Content.Headers.ContentLength == 0;
         }
 
         private async Task<HttpResponseMessage> MakeRequest(ApiConfig apiConfig, string path)
@@ -154,7 +141,7 @@ namespace PTrampert.ApiProxy
                 }
             }
 
-            if (RequestHasBody())
+            if (Request.HasBody())
             {
                 upstreamRequest.Content = content;
                 if (!string.IsNullOrWhiteSpace(Request.ContentType))
@@ -177,16 +164,6 @@ namespace PTrampert.ApiProxy
             // waiting on the upstream API too. The resulting OperationCanceledException is left to propagate:
             // ASP.NET Core recognises it as a client abort.
             return await httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
-        }
-
-        // A chunked request has a body but no Content-Length, so Content-Length alone cannot decide this.
-        // The server knows whether the request can carry a body (Kestrel reports it for both framing styles,
-        // and for HTTP/2 and HTTP/3); fall back to inspecting the framing headers when it does not say.
-        private bool RequestHasBody()
-        {
-            var bodyDetection = HttpContext.Features?.Get<IHttpRequestBodyDetectionFeature>();
-            if (bodyDetection != null) return bodyDetection.CanHaveBody;
-            return Request.ContentLength > 0 || Request.Headers.ContainsKey(Microsoft.Net.Http.Headers.HeaderNames.TransferEncoding);
         }
     }
 }
