@@ -771,12 +771,34 @@ namespace PTrampert.ApiProxy.Test
                 .Returns("GET");
             var auth = new Mock<IAuthentication>();
             var authHeader = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("id:secret")));
-            auth.Setup(a => a.GetAuthenticationHeader()).ReturnsAsync(authHeader);
+            auth.Setup(a => a.GetAuthenticationHeader(It.IsAny<CancellationToken>())).ReturnsAsync(authHeader);
             authBuilder.Setup(ab => ab.BuildAuthentication(proxyConfig["fake"])).Returns(auth.Object);
 
             await subject.Proxy("fake", "some/path");
 
             Assert.That(messageHandler.LastRequestAuthenticationHeader, Is.SameAs(authHeader));
+        }
+
+        [Test]
+        public async Task ItPassesTheRequestAbortedTokenToTheAuthentication()
+        {
+            proxyConfig.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com"
+            });
+            httpRequest.SetupGet(r => r.Method)
+                .Returns("GET");
+            using var requestAborted = new CancellationTokenSource();
+            httpContext.SetupGet(c => c.RequestAborted)
+                .Returns(requestAborted.Token);
+            var auth = new Mock<IAuthentication>();
+            auth.Setup(a => a.GetAuthenticationHeader(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new AuthenticationHeaderValue("Bearer", "token"));
+            authBuilder.Setup(ab => ab.BuildAuthentication(proxyConfig["fake"])).Returns(auth.Object);
+
+            await subject.Proxy("fake", "some/path");
+
+            auth.Verify(a => a.GetAuthenticationHeader(requestAborted.Token), Times.Once);
         }
 
         [Test]

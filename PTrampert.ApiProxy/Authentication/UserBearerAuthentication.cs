@@ -2,6 +2,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -49,9 +50,15 @@ namespace PTrampert.ApiProxy.Authentication
         /// <summary>
         /// Generates the bearer token authentication header.
         /// </summary>
+        /// <param name="cancellationToken">
+        /// Checked before the token is looked up: a cancelled token throws <see cref="OperationCanceledException"/>
+        /// instead of authenticating. <see cref="AuthenticationHttpContextExtensions.GetTokenAsync(HttpContext,string,string)"/>
+        /// accepts no token, so a lookup already in progress runs to completion.
+        /// </param>
         /// <returns>A bearer token <see cref="AuthenticationHeaderValue"/></returns>
-        public async Task<AuthenticationHeaderValue> GetAuthenticationHeader()
+        public async Task<AuthenticationHeaderValue> GetAuthenticationHeader(CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string token = null;
             switch ((TokenMode)Enum.Parse(typeof(TokenMode), Mode))
             {

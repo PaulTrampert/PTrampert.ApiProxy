@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Moq;
@@ -30,7 +31,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
         {
             httpContext.Request.Headers.Authorization = incoming;
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             using (Assert.EnterMultipleScope())
             {
@@ -45,7 +46,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
         {
             httpContext.Request.Headers.Authorization = "Negotiate";
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             using (Assert.EnterMultipleScope())
             {
@@ -57,7 +58,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
         [Test]
         public async Task ItReturnsNullWhenTheIncomingRequestHasNoAuthorizationHeader()
         {
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             Assert.That(result, Is.Null);
         }
@@ -67,7 +68,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
         {
             httpContext = null;
 
-            var result = await subject.GetAuthenticationHeader();
+            var result = await subject.GetAuthenticationHeader(CancellationToken.None);
 
             Assert.That(result, Is.Null);
         }
@@ -79,7 +80,7 @@ namespace PTrampert.ApiProxy.Test.Authentication
 
             // The delegate is cast explicitly because the Func<Task> and AsyncTestDelegate overloads of ThrowsAsync
             // are otherwise ambiguous when building for net8.0.
-            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.GetAuthenticationHeader()));
+            var exception = await Assert.ThrowsAsync<ProxyException>((Func<Task>)(() => subject.GetAuthenticationHeader(CancellationToken.None)));
 
             Assert.That(exception?.Status, Is.EqualTo(400));
         }
