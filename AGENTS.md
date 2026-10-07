@@ -37,8 +37,9 @@ Key types in the library:
   implementations.
 - `IWebSocketProxy` / `WebSocketProxy` — bidirectional WebSocket pumping.
 - `ApiProxyConfigValidator` — an `IValidateOptions<ApiProxyConfig>`, validated on start, that rejects
-  reserved headers (content headers, and `Authorization` on requests) in an api's `RequestHeaders` /
-  `ResponseHeaders`. The reserved names are documented in `README.md`. Forwarding the client's
+  reserved headers (`Content-Length` and `Content-Type`, which the proxy sets itself, and `Authorization` on
+  requests) in an api's `RequestHeaders` / `ResponseHeaders`. Other content headers are forwarded on the
+  message's content. The reserved names are documented in `README.md`. Forwarding the client's
   `Authorization` is done with `PassthroughAuthentication`, which the failure message points to.
 
 ## Build and test

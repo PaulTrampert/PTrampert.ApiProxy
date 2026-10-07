@@ -47,11 +47,7 @@ namespace PTrampert.ApiProxy.Test
 
         [TestCase("Content-Type")]
         [TestCase("content-length")]
-        [TestCase("Content-Disposition")]
-        [TestCase("Allow")]
-        [TestCase("EXPIRES")]
-        [TestCase("Last-Modified")]
-        public void ItFailsWhenAContentHeaderIsConfiguredAsARequestHeader(string header)
+        public void ItFailsWhenAProxyOwnedContentHeaderIsConfiguredAsARequestHeader(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -112,8 +108,7 @@ namespace PTrampert.ApiProxy.Test
 
         [TestCase("Content-Type")]
         [TestCase("content-length")]
-        [TestCase("Last-Modified")]
-        public void ItFailsWhenAContentHeaderIsConfiguredAsAResponseHeader(string header)
+        public void ItFailsWhenAProxyOwnedContentHeaderIsConfiguredAsAResponseHeader(string header)
         {
             config.Add("fake", new ApiConfig
             {
@@ -168,19 +163,41 @@ namespace PTrampert.ApiProxy.Test
             }
         }
 
-        // The reserved content headers are not a hand-written guess: they are the set System.Net.Http keeps on
-        // HttpContent.Headers. This pins the list to what HttpClient actually does, so a name that stops (or
-        // starts) being refused on a request message shows up here rather than in production. Authorization is
-        // left out: an upstream request can carry it, but it is reserved for a different reason, tested above.
+        // Content headers other than Content-Length and Content-Type are forwarded on the message's content,
+        // so configuring them is valid in either direction.
         [TestCase("Allow")]
         [TestCase("Content-Disposition")]
         [TestCase("Content-Encoding")]
         [TestCase("Content-Language")]
-        [TestCase("Content-Length")]
         [TestCase("Content-Location")]
         [TestCase("Content-MD5")]
         [TestCase("Content-Range")]
-        [TestCase("Content-Type")]
+        [TestCase("EXPIRES")]
+        [TestCase("Last-Modified")]
+        public void ItSucceedsWhenAForwardableContentHeaderIsConfigured(string header)
+        {
+            config.Add("fake", new ApiConfig
+            {
+                BaseUrl = "https://example.com",
+                RequestHeaders = new List<string> { header },
+                ResponseHeaders = new List<string> { header }
+            });
+
+            var result = subject.Validate(null, config);
+
+            Assert.That(result.Succeeded, Is.True);
+        }
+
+        // Every header the validator lets through must have somewhere to go on an upstream request: the
+        // message's own headers or, for a content header, its content's. This pins that to what HttpClient
+        // actually does, so a name neither accepts shows up here rather than in production.
+        [TestCase("Allow")]
+        [TestCase("Content-Disposition")]
+        [TestCase("Content-Encoding")]
+        [TestCase("Content-Language")]
+        [TestCase("Content-Location")]
+        [TestCase("Content-MD5")]
+        [TestCase("Content-Range")]
         [TestCase("Expires")]
         [TestCase("Last-Modified")]
         [TestCase("User-Agent")]
@@ -198,13 +215,14 @@ namespace PTrampert.ApiProxy.Test
         [TestCase("Content-Security-Policy")]
         [TestCase("Access-Control-Allow-Origin")]
         [TestCase("X-Custom")]
-        public void ItReservesARequestHeaderExactlyWhenAnUpstreamRequestCannotCarryIt(string header)
+        public void ItOnlyAcceptsRequestHeadersAnUpstreamRequestCanCarry(string header)
         {
             using var upstreamRequest = new HttpRequestMessage(HttpMethod.Post, "https://example.com/")
             {
                 Content = new StringContent("body")
             };
-            var upstreamRequestCanCarryIt = upstreamRequest.Headers.TryAddWithoutValidation(header, "probe-value");
+            var upstreamRequestCanCarryIt = upstreamRequest.Headers.TryAddWithoutValidation(header, "probe-value")
+                || upstreamRequest.Content.Headers.TryAddWithoutValidation(header, "probe-value");
 
             config.Add("fake", new ApiConfig
             {
@@ -214,7 +232,11 @@ namespace PTrampert.ApiProxy.Test
 
             var result = subject.Validate(null, config);
 
-            Assert.That(result.Succeeded, Is.EqualTo(upstreamRequestCanCarryIt));
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(result.Succeeded, Is.True);
+                Assert.That(upstreamRequestCanCarryIt, Is.True);
+            }
         }
 
         [Test]
